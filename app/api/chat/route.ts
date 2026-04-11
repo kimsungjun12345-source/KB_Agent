@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+
+export const maxDuration = 60;
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { SYSTEM_PROMPT } from '@/lib/system-prompt';
