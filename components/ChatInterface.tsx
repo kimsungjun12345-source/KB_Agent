@@ -58,6 +58,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          stage: currentStage,
           messages: [...messages, userMessage].map(m => ({
             role: m.isUser ? 'user' : 'assistant',
             content: m.content

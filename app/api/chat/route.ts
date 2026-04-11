@@ -286,19 +286,23 @@ export async function POST(request: NextRequest) {
       effectiveStage = 3;
     }
 
-    let toolChoice: any = 'auto';
-    if (effectiveStage === 2 && !hasRiskMap) {
-      toolChoice = { type: 'function', function: { name: 'calculate_risk_scores' } };
-    } else if (effectiveStage === 3 && !hasGapAnalysis) {
-      toolChoice = { type: 'function', function: { name: 'calculate_gap_analysis' } };
-    }
+    // stage 2: RISK_TOOL만, stage 3: GAP_TOOL만, 나머지: 둘 다 auto
+    const activeTools =
+      effectiveStage === 2 && !hasRiskMap ? [RISK_TOOL] :
+      effectiveStage === 3 && !hasGapAnalysis ? [GAP_TOOL] :
+      [RISK_TOOL, GAP_TOOL];
+
+    const toolChoice: any =
+      (effectiveStage === 2 && !hasRiskMap) || (effectiveStage === 3 && !hasGapAnalysis)
+        ? 'required'
+        : 'auto';
 
     // 1차 호출: 툴 콜 감지 (non-streaming)
-    const firstResponse = await client.chat.completions.create({
+    const firstResponse = await client!.chat.completions.create({
       model: 'google/gemini-2.0-flash-001',
       max_tokens: 2000,
       stream: false,
-      tools: [RISK_TOOL, GAP_TOOL],
+      tools: activeTools,
       tool_choice: toolChoice,
       messages: [
         { role: 'system', content: systemWithData },
@@ -322,7 +326,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 2차 호출: 툴 결과 포함해서 응답
-      const stream = await client.chat.completions.create({
+      const stream = await client!.chat.completions.create({
         model: 'google/gemini-2.0-flash-001',
         max_tokens: 2000,
         stream: true,
