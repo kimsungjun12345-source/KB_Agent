@@ -176,7 +176,7 @@ function inferDocTypes(query: string): string[] | undefined {
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, stage = 1 } = await request.json();
+    const { messages, stage = 1, shownVisualizations = [] } = await request.json();
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -278,8 +278,8 @@ export async function POST(request: NextRequest) {
 
     // Fix 1: stage 2/3에서 tool_choice 강제 지정 (단, 이미 해당 Tool 결과가 대화에 있으면 강제하지 않음)
     const allMsgText = messages.map((m: any) => m.content ?? '').join('\n');
-    const hasRiskMap = messages.some((m: any) => m.visualization?.type === 'risk_map') || allMsgText.includes('risk_map');
-    const hasGapAnalysis = messages.some((m: any) => m.visualization?.type === 'gap_analysis') || allMsgText.includes('gap_analysis');
+    const hasRiskMap = shownVisualizations.includes('risk_map') || allMsgText.includes('risk_map');
+    const hasGapAnalysis = shownVisualizations.includes('gap_analysis') || allMsgText.includes('gap_analysis');
 
     // Stage 자동 승격: risk_map이 이미 있는데 stage=2이면 → 3으로 올림
     if (effectiveStage === 2 && hasRiskMap && !hasGapAnalysis) {

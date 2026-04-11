@@ -54,11 +54,17 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
     setIsLoading(true);
 
     try {
+      // 이미 표시된 시각화 목록을 API에 전달해 중복 계산 방지
+      const shownVisualizations = messages
+        .filter(m => !m.isUser && m.visualizations?.length)
+        .map(m => m.visualizations![0].type);
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           stage: currentStage,
+          shownVisualizations,
           messages: [...messages, userMessage].map(m => ({
             role: m.isUser ? 'user' : 'assistant',
             content: m.content
