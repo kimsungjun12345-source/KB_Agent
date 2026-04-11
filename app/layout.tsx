@@ -22,7 +22,7 @@ export default function RootLayout({
       lang="ko"
       className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
