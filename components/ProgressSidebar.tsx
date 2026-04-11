@@ -103,19 +103,33 @@ export default function ProgressSidebar({ currentStage }: ProgressSidebarProps) 
       </div>
 
       <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h3 className="font-medium text-blue-900 mb-2 text-sm">💡 상담 안내</h3>
-        <ul className="text-xs text-blue-700 space-y-1">
-          <li>• 정확한 진단을 위해 솔직하게 답변해 주세요</li>
-          <li>• 언제든지 질문하시면 자세히 설명드립니다</li>
-          <li>• 상담 중 저장되지 않으니 한 번에 완료해 주세요</li>
+        <h3 className="font-semibold text-blue-900 mb-3 text-sm flex items-center">
+          💡 <span className="ml-2">상담 안내</span>
+        </h3>
+        <ul className="text-xs text-blue-700 space-y-2 leading-relaxed">
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>정확한 진단을 위해 솔직하게 답변해 주세요</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>언제든지 질문하시면 자세히 설명드립니다</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>상담 중 저장되지 않으니 한 번에 완료해 주세요</span>
+          </li>
         </ul>
       </div>
 
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <div className="text-xs text-gray-600 text-center">
-          <div className="font-medium">전화 상담 문의</div>
-          <div className="text-orange-600 font-bold">1588-9922</div>
-          <div className="mt-1">평일 09:00~18:00</div>
+      <div className="mt-4 p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+        <div className="text-center">
+          <div className="text-xs text-gray-600 mb-1">전화 상담 문의</div>
+          <div className="text-orange-600 font-bold text-lg">1588-9922</div>
+          <div className="text-xs text-gray-500 mt-1">평일 09:00~18:00</div>
+          <div className="mt-2 pt-2 border-t border-orange-200">
+            <div className="text-xs text-gray-600">KB라이프 공식 상담센터</div>
+          </div>
         </div>
       </div>
     </div>

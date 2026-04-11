@@ -119,54 +119,60 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
   };
 
   const formatMessage = (content: string) => {
-    return content.split('\\n').map((line, index) => {
+    return content.split('\n').map((line, index) => {
       if (line.trim() === '') return <br key={index} />;
 
       if (line.includes('**')) {
-        const parts = line.split(/\\*\\*([^*]+)\\*\\*/);
+        const parts = line.split(/\*\*([^*]+)\*\*/);
         return (
-          <div key={index}>
+          <div key={index} className="mb-1">
             {parts.map((part, i) =>
-              i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+              i % 2 === 1 ? <strong key={i} className="font-semibold text-orange-600">{part}</strong> : part
             )}
           </div>
         );
       }
 
-      return <div key={index}>{line}</div>;
+      return <div key={index} className="mb-1 leading-relaxed">{line}</div>;
     });
   };
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* 모바일에서 상단 여백 추가 */}
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 lg:pt-16 pt-20">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-3xl p-4 rounded-2xl shadow-sm ${
+            <div className={`max-w-4xl p-5 rounded-2xl shadow-sm ${
               message.isUser
                 ? 'bg-orange-500 text-white rounded-tr-sm'
-                : 'bg-gray-100 text-gray-900 rounded-tl-sm'
+                : 'bg-gray-50 text-gray-900 rounded-tl-sm border border-gray-200'
             }`}>
-              <div className="prose prose-sm max-w-none">
+              <div className="text-sm leading-relaxed">
                 {formatMessage(message.content)}
               </div>
 
               {message.visualizations && message.visualizations.map((viz, index) => (
-                <div key={index} className="mt-4 p-4 bg-white rounded-lg border">
+                <div key={index} className="mt-6 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
                   {viz.type === 'risk_map' && (
                     <div>
-                      <h4 className="font-semibold mb-3 text-gray-900">📊 개인별 리스크 프로파일</h4>
-                      <div className="space-y-2">
+                      <h4 className="font-bold mb-4 text-gray-900 text-lg">📊 개인별 리스크 프로파일</h4>
+                      <div className="space-y-4">
                         {Object.entries(viz.data).map(([risk, score]) => (
-                          <div key={risk} className="flex items-center space-x-3">
-                            <span className="w-16 text-sm font-medium text-gray-700">{risk}</span>
-                            <div className="flex-1 bg-gray-200 rounded-full h-3">
+                          <div key={risk} className="bg-gray-50 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-gray-800">{risk}</span>
+                              <span className="text-lg font-bold text-gray-900">{score}/10</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
                               <div
-                                className="bg-gradient-to-r from-green-400 via-yellow-500 to-red-500 h-3 rounded-full"
+                                className="h-4 rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-green-400 via-yellow-500 to-red-500"
                                 style={{ width: `${(score as number / 10) * 100}%` }}
                               />
                             </div>
-                            <span className="w-12 text-sm font-bold text-gray-900">{score}/10</span>
+                            <div className="mt-2 text-xs text-gray-500">
+                              위험도: {score < 4 ? '낮음' : score < 7 ? '보통' : '높음'}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -175,24 +181,92 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
 
                   {viz.type === 'gap_analysis' && (
                     <div>
-                      <h4 className="font-semibold mb-3 text-gray-900">🔍 보장갭 분석</h4>
-                      <div className="space-y-3">
+                      <h4 className="font-bold mb-4 text-gray-900 text-lg">🔍 보장갭 분석</h4>
+                      <div className="space-y-4">
                         {Object.entries(viz.data).map(([risk, values]) => {
                           const { risk: riskValue, covered } = values as { risk: number; covered: number };
                           const gap = Math.max(0, riskValue - covered);
                           return (
-                            <div key={risk} className="p-3 bg-gray-50 rounded-lg">
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="font-medium text-gray-700">{risk}</span>
-                                <span className={`text-sm font-semibold ${
-                                  gap > 0 ? 'text-red-600' : 'text-green-600'
+                            <div key={risk} className="bg-gray-50 p-4 rounded-lg">
+                              <div className="flex justify-between items-center mb-3">
+                                <span className="font-semibold text-gray-800">{risk}</span>
+                                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                  gap > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                                 }`}>
-                                  {gap > 0 ? `부족: ${gap}` : '충분'}
+                                  {gap > 0 ? `부족: ${gap}점` : '충분'}
                                 </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">필요 보장</div>
+                                  <div className="bg-orange-200 h-3 rounded-full">
+                                    <div
+                                      className="bg-orange-500 h-3 rounded-full"
+                                      style={{width: `${(riskValue/10)*100}%`}}
+                                    />
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1">{riskValue}/10</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">현재 보장</div>
+                                  <div className="bg-blue-200 h-3 rounded-full">
+                                    <div
+                                      className="bg-blue-500 h-3 rounded-full"
+                                      style={{width: `${(covered/10)*100}%`}}
+                                    />
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1">{covered}/10</div>
+                                </div>
                               </div>
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {viz.type === 'product_match' && (
+                    <div>
+                      <h4 className="font-bold mb-4 text-gray-900 text-lg">🎯 맞춤 상품 추천</h4>
+                      <div className="space-y-4">
+                        {viz.data?.map((product: any, index: number) => (
+                          <div key={index} className="bg-gradient-to-r from-orange-50 to-blue-50 p-4 rounded-lg border border-orange-200">
+                            <div className="flex justify-between items-start mb-2">
+                              <h5 className="font-semibold text-gray-900 text-base">{product.product_name}</h5>
+                              <span className="text-orange-600 font-bold text-lg">월 {product.premium_monthly?.toLocaleString()}원</span>
+                            </div>
+                            <p className="text-gray-700 mb-3 leading-relaxed">{product.reason}</p>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">
+                                보장갭: <span className="text-red-600 font-medium">{product.gap_before}</span> → <span className="text-green-600 font-medium">{product.gap_after}</span>
+                              </span>
+                              <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
+                                {product.covers_risk} 커버
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {viz.type === 'final_report' && (
+                    <div>
+                      <h4 className="font-bold mb-4 text-gray-900 text-lg">✅ 최종 설계안</h4>
+                      <div className="bg-gradient-to-r from-orange-50 to-blue-50 p-6 rounded-xl border border-orange-200">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-gray-900 mb-2">
+                            총 월납보험료: <span className="text-orange-600">{viz.data?.total_premium?.toLocaleString()}원</span>
+                          </div>
+                          <div className="text-gray-600 mb-4">
+                            {viz.data?.products?.length}개 상품 최적 조합
+                          </div>
+                          <div className="bg-white p-4 rounded-lg shadow-sm">
+                            <div className="text-sm text-gray-700">
+                              이 설계안은 고객님의 리스크 프로필을 기반으로 한 맞춤형 추천입니다.
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -222,26 +296,34 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex space-x-3">
-          <div className="flex-1">
-            <textarea
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="메시지를 입력하세요..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              rows={2}
-              disabled={isLoading}
-            />
+      <div className="border-t border-gray-200 bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <textarea
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="메시지를 입력하세요... (Shift+Enter: 줄바꿈, Enter: 전송)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm leading-relaxed"
+                rows={2}
+                disabled={isLoading}
+              />
+              <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                <span>💡 정확한 진단을 위해 구체적으로 답변해 주세요</span>
+                <span className="text-gray-400">
+                  예: "35세 남성, 회사원, 기혼 2자녀"
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleSend}
+              disabled={!currentMessage.trim() || isLoading}
+              className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200 shadow-sm hover:shadow-md self-start"
+            >
+              {isLoading ? '분석중...' : '전송'}
+            </button>
           </div>
-          <button
-            onClick={handleSend}
-            disabled={!currentMessage.trim() || isLoading}
-            className="px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-medium rounded-lg"
-          >
-            전송
-          </button>
         </div>
       </div>
     </div>

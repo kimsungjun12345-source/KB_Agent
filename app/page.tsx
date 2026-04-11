@@ -43,16 +43,33 @@ export default function HomePage() {
       </header>
 
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* 진행 상황 사이드바 */}
-        <ProgressSidebar currentStage={currentStage} />
+        {/* 진행 상황 사이드바 - 데스크톱에서만 표시 */}
+        <div className="hidden lg:block">
+          <ProgressSidebar currentStage={currentStage} />
+        </div>
 
         {/* 메인 채팅 영역 */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <ChatInterface
             userName={userName}
             currentStage={currentStage}
             onStageChange={setCurrentStage}
           />
+        </div>
+
+        {/* 모바일 진행 상태 표시 */}
+        <div className="lg:hidden fixed top-16 left-0 right-0 bg-white border-b border-gray-200 px-4 py-2 z-10">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">
+              {currentStage}/9단계 진행 중
+            </span>
+            <div className="w-32 bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentStage / 9) * 100}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
