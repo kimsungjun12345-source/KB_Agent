@@ -76,12 +76,13 @@ const GAP_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   },
 };
 
-// 데모 모드 확인
-const DEMO_MODE = !process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY.includes('실제_값으로_변경');
+// OPENROUTER_API_KEY 또는 ANTHROPIC_API_KEY 중 하나를 사용
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY;
+const DEMO_MODE = !OPENROUTER_KEY;
 
 const client = DEMO_MODE ? null : new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: OPENROUTER_KEY,
 });
 
 let dataCache: { products: any; statistics: any } | null = null;
@@ -251,7 +252,8 @@ export async function POST(request: NextRequest) {
     // RAG: STAGE 5 이상 (상품 매칭, Q&A, 설계 조정) 에서만 약관 검색
     let ragContext = '';
 
-    if (effectiveStage >= 5 && process.env.OPENAI_API_KEY) {
+    const isRealOpenAIKey = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-or-');
+    if (effectiveStage >= 5 && isRealOpenAIKey) {
       const lastUserMessage = [...messages].reverse().find((m: any) => m.role === 'user');
       if (lastUserMessage) {
         const mentionedProductIds = extractMentionedProductIds(messages);
