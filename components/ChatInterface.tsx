@@ -173,15 +173,15 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                           리스크 프로파일
                         </div>
                         <div className="space-y-3">
-                          {Object.entries(viz.data).map(([risk, score]) => {
-                            const s = score as number;
+                          {(viz.data as {category:string; risk_level:number}[]).map((item) => {
+                            const s = Math.round(item.risk_level / 10);
                             const level = s < 4 ? 'low' : s < 7 ? 'mid' : 'high';
                             const barColor = level === 'low' ? '#059669' : level === 'mid' ? '#d97706' : '#dc2626';
                             const levelLabel = level === 'low' ? '낮음' : level === 'mid' ? '보통' : '높음';
                             return (
-                              <div key={risk}>
+                              <div key={item.category}>
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-xs font-medium text-[#374151]">{risk}</span>
+                                  <span className="text-xs font-medium text-[#374151]">{item.category}</span>
                                   <div className="flex items-center space-x-2">
                                     <span className="text-[11px] text-[#9ca3af]">{levelLabel}</span>
                                     <span className="text-xs font-semibold text-[#111827]">{s}<span className="text-[10px] text-[#9ca3af] font-normal">/10</span></span>
@@ -190,7 +190,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                                 <div className="w-full h-1.5 bg-[#e4e7ed] rounded-full overflow-hidden">
                                   <div
                                     className="h-full rounded-full transition-all duration-700 ease-out"
-                                    style={{ width: `${(s / 10) * 100}%`, backgroundColor: barColor }}
+                                    style={{ width: `${item.risk_level}%`, backgroundColor: barColor }}
                                   />
                                 </div>
                               </div>
@@ -206,44 +206,38 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                           보장갭 분석
                         </div>
                         <div className="space-y-4">
-                          {Object.entries(viz.data).map(([risk, values]) => {
-                            const { risk: riskValue, covered } = values as { risk: number; covered: number };
-                            const gap = Math.max(0, riskValue - covered);
-                            return (
-                              <div key={risk} className="border-b border-[#e4e7ed] pb-4 last:border-0 last:pb-0">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-medium text-[#374151]">{risk}</span>
-                                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
-                                    gap > 0
-                                      ? 'bg-[#fef2f2] text-[#dc2626]'
-                                      : 'bg-[#ecfdf5] text-[#059669]'
-                                  }`}>
-                                    {gap > 0 ? `부족 ${gap}점` : '충분'}
-                                  </span>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <div>
-                                    <div className="flex justify-between text-[10px] text-[#9ca3af] mb-1">
-                                      <span>필요 보장</span>
-                                      <span>{riskValue}/10</span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-[#e4e7ed] rounded-full overflow-hidden">
-                                      <div className="h-full bg-[#1a3d6b] rounded-full" style={{ width: `${(riskValue / 10) * 100}%` }} />
-                                    </div>
+                          {(viz.data as {category:string; current_coverage:number; recommended_coverage:number; gap:number}[]).map((item) => (
+                            <div key={item.category} className="border-b border-[#e4e7ed] pb-4 last:border-0 last:pb-0">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-[#374151]">{item.category}</span>
+                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                                  item.gap > 0 ? 'bg-[#fef2f2] text-[#dc2626]' : 'bg-[#ecfdf5] text-[#059669]'
+                                }`}>
+                                  {item.gap > 0 ? `부족 ${(item.gap/1000).toFixed(0)}점` : '충분'}
+                                </span>
+                              </div>
+                              <div className="space-y-1.5">
+                                <div>
+                                  <div className="flex justify-between text-[10px] text-[#9ca3af] mb-1">
+                                    <span>필요 보장</span>
+                                    <span>{(item.recommended_coverage/1000).toFixed(0)}</span>
                                   </div>
-                                  <div>
-                                    <div className="flex justify-between text-[10px] text-[#9ca3af] mb-1">
-                                      <span>현재 보장</span>
-                                      <span>{covered}/10</span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-[#e4e7ed] rounded-full overflow-hidden">
-                                      <div className="h-full bg-[#2563eb] rounded-full opacity-60" style={{ width: `${(covered / 10) * 100}%` }} />
-                                    </div>
+                                  <div className="w-full h-1.5 bg-[#e4e7ed] rounded-full overflow-hidden">
+                                    <div className="h-full bg-[#1a3d6b] rounded-full" style={{ width: `${Math.min((item.recommended_coverage / 10000) * 100, 100)}%` }} />
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-[10px] text-[#9ca3af] mb-1">
+                                    <span>현재 보장</span>
+                                    <span>{(item.current_coverage/1000).toFixed(0)}</span>
+                                  </div>
+                                  <div className="w-full h-1.5 bg-[#e4e7ed] rounded-full overflow-hidden">
+                                    <div className="h-full bg-[#2563eb] rounded-full opacity-60" style={{ width: `${Math.min((item.current_coverage / 10000) * 100, 100)}%` }} />
                                   </div>
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -254,24 +248,23 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                           추천 상품
                         </div>
                         <div className="space-y-3">
-                          {viz.data?.map((product: any, index: number) => (
+                          {(viz.data as {product_name:string; match_score:number; monthly_premium:number; key_benefits:string[]}[]).map((product, index) => (
                             <div key={index} className="bg-white border border-[#e4e7ed] rounded-lg p-4">
                               <div className="flex items-start justify-between mb-2">
                                 <h5 className="text-sm font-semibold text-[#111827] leading-snug">{product.product_name}</h5>
                                 <span className="text-sm font-bold text-[#1a3d6b] ml-3 flex-shrink-0">
-                                  {product.premium_monthly?.toLocaleString()}원
+                                  {product.monthly_premium?.toLocaleString()}원
                                   <span className="text-[11px] font-normal text-[#9ca3af]">/월</span>
                                 </span>
                               </div>
-                              <p className="text-xs text-[#6b7280] leading-relaxed mb-3">{product.reason}</p>
-                              <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-[#9ca3af]">
-                                  보장갭 <span className="text-[#dc2626] font-medium">{product.gap_before}</span>
-                                  {' → '}
-                                  <span className="text-[#059669] font-medium">{product.gap_after}</span>
-                                </span>
-                                <span className="bg-[#eef2f8] text-[#1a3d6b] px-2 py-0.5 rounded font-medium">
-                                  {product.covers_risk}
+                              <div className="flex items-center justify-between text-[11px] mt-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {product.key_benefits?.slice(0,2).map((b, i) => (
+                                    <span key={i} className="bg-[#f5f7fa] text-[#6b7280] px-1.5 py-0.5 rounded">{b}</span>
+                                  ))}
+                                </div>
+                                <span className="bg-[#eef2f8] text-[#1a3d6b] px-2 py-0.5 rounded font-semibold ml-2 flex-shrink-0">
+                                  {product.match_score}점
                                 </span>
                               </div>
                             </div>
