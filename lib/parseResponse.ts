@@ -1,10 +1,10 @@
 export interface ParsedResponse {
-  text: string;
+  cleanText: string;
   stage?: number;
-  visualization?: {
+  visualizations?: Array<{
     type: 'risk_map' | 'gap_analysis' | 'product_match' | 'final_report';
     data: any;
-  };
+  }>;
 }
 
 function inferStageFromText(text: string, vizType?: string): number | undefined {
@@ -122,12 +122,12 @@ export function parseResponse(response: string): ParsedResponse {
 
     const stage = markerStage ?? inferStageFromText(textWithoutVisualization, type);
     return {
-      text: textWithoutVisualization,
+      cleanText: textWithoutVisualization,
       stage,
-      visualization: { type, data }
+      visualizations: [{ type, data }]
     };
   }
 
   const stage = markerStage ?? inferStageFromText(cleaned);
-  return { text: cleaned, stage };
+  return { cleanText: cleaned, stage };
 }
