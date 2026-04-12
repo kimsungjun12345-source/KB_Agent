@@ -178,11 +178,13 @@ export function parseResponse(response: string): ParsedResponse {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // 잔여 마커 파편 제거
+  // 잔여 마커 파편 제거 - 모든 패턴 포함
   cleaned = cleaned.replace(/#+\s*END_VISUALIZATION\s*#+/g, '');
   cleaned = cleaned.replace(/#+\s*VISUALIZATION\s*#+/g, '');
   cleaned = cleaned.replace(/#END_VISUALIZATION[#]*/g, '');
   cleaned = cleaned.replace(/[#]+END_VISUALIZATION/g, '');
+  cleaned = cleaned.replace(/VISUALIZATION#+/g, ''); // 새로운 패턴 추가
+  cleaned = cleaned.replace(/END_VISUALIZATION#+/g, ''); // 새로운 패턴 추가
 
   // ── 2. VISUALIZATION 마커 정규화 ──
   cleaned = cleaned.replace(/<details[^>]*>[\s\S]*?<\/summary>\s*/gi, '');

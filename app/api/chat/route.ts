@@ -487,11 +487,31 @@ export async function POST(request: NextRequest) {
         fullContent += `\n\n###VISUALIZATION###\n${productJson}\n###END_VISUALIZATION###`;
       }
 
-      // 💀 중복 텍스트 제거 - 더 이상 자동 텍스트 추가하지 않음
-      console.log('시각화 처리만 수행 - 텍스트 중복 방지');
+      // 📊 시각화만 자동 주입 (텍스트 중복 없이)
+      if ((fullContent.includes('분석 결과를 바탕으로 적합한 상품을 매칭') || fullContent.includes('상품을 매칭한 결과')) &&
+          !fullContent.includes('"type": "final_report"')) {
 
-      // 💀 final_report 자동 생성도 제거 - 시스템 프롬프트에 맡김
-      console.log('모든 자동 텍스트 주입 비활성화 완료');
+        console.log('🎯 상품 매칭 완료 감지 - 최종 설계안 시각화 자동 생성');
+
+        const finalProducts = [
+          { name: "KB무배당 착한정기보험II", premium: 45000 },
+          { name: "KB딱좋은 e-건강보험", premium: 35000 },
+          { name: "KB하이파이브평생연금보험", premium: 50000 }
+        ];
+
+        const totalPremium = finalProducts.reduce((sum, p) => sum + p.premium, 0);
+
+        const finalReportJson = JSON.stringify({
+          type: 'final_report',
+          data: {
+            total_premium: totalPremium,
+            products: finalProducts
+          }
+        });
+
+        fullContent += `\n\n###VISUALIZATION###\n${finalReportJson}\n###END_VISUALIZATION###`;
+        console.log('✅ 최종 설계안 시각화 주입 완료');
+      }
 
       const readable = new ReadableStream({
         start(controller) {
