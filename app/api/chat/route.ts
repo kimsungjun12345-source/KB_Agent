@@ -314,7 +314,7 @@ export async function POST(request: NextRequest) {
 
     // 1차 호출: 툴 콜 감지 (non-streaming)
     const firstResponse = await client.chat.completions.create({
-      model: 'google/gemini-2.0-flash-001',
+      model: 'openai/gpt-4o-2024-08-06',
       max_tokens: 2000,
       stream: false,
       tools: activeTools,
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
 
       // 2차 호출: 툴 결과 포함해서 응답
       const stream = await client.chat.completions.create({
-        model: 'google/gemini-2.0-flash-001',
+        model: 'openai/gpt-4o-2024-08-06',
         max_tokens: 2000,
         stream: true,
         messages: [
