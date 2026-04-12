@@ -395,6 +395,12 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // 혼합형 폼 상태
+  const [formData, setFormData] = useState({
+    age: '',
+    gender: ''
+  });
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -598,33 +604,65 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                 {/* Quick Response Buttons */}
                 {!message.isUser && !isLoading && currentStage === 1 && (
                   <div className="mt-4">
-                    {/* 첫 번째 질문: 나이와 성별 */}
+                    {/* 나이와 성별 혼합형 폼 */}
                     {message.content.includes('나이와 성별') && (
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => handleSendWithMessage("30세 남성입니다")}
-                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          30세 남성
-                        </button>
-                        <button
-                          onClick={() => handleSendWithMessage("30세 여성입니다")}
-                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          30세 여성
-                        </button>
-                        <button
-                          onClick={() => handleSendWithMessage("40세 남성입니다")}
-                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          40세 남성
-                        </button>
-                        <button
-                          onClick={() => handleSendWithMessage("40세 여성입니다")}
-                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          40세 여성
-                        </button>
+                      <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                        <div className="space-y-3">
+                          {/* 나이 입력 */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">나이</label>
+                            <input
+                              type="number"
+                              min="20"
+                              max="70"
+                              placeholder="예: 30"
+                              value={formData.age}
+                              onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#F5C400] focus:border-[#F5C400] text-sm"
+                            />
+                          </div>
+
+                          {/* 성별 선택 */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">성별</label>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setFormData(prev => ({ ...prev, gender: '남성' }))}
+                                className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                                  formData.gender === '남성'
+                                    ? 'bg-[#F5C400] text-black font-semibold'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                남성
+                              </button>
+                              <button
+                                onClick={() => setFormData(prev => ({ ...prev, gender: '여성' }))}
+                                className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                                  formData.gender === '여성'
+                                    ? 'bg-[#F5C400] text-black font-semibold'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                여성
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 전송 버튼 */}
+                          <button
+                            onClick={() => {
+                              if (formData.age && formData.gender) {
+                                handleSendWithMessage(`${formData.age}세 ${formData.gender}입니다`);
+                                setFormData({ age: '', gender: '' });
+                              }
+                            }}
+                            disabled={!formData.age || !formData.gender}
+                            className="w-full px-4 py-2 bg-[#1a3d6b] text-white text-sm font-semibold rounded-md hover:bg-[#164059] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                          >
+                            전송
+                          </button>
+                        </div>
                       </div>
                     )}
 
