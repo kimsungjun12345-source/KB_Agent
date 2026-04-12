@@ -445,7 +445,12 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
   }, [isLoading, messages]);
 
   const handleSendWithMessage = async (message: string) => {
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading) {
+      console.log('Message blocked:', { messageEmpty: !message.trim(), isLoading });
+      return;
+    }
+
+    console.log('Sending message:', message);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -500,12 +505,15 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
         const chunk = decoder.decode(value);
         aiContent += chunk;
 
+        // 스트리밍 중에 메시지 업데이트
         setMessages(prev =>
           prev.map(m =>
             m.id === tempAiMessage.id ? { ...m, content: aiContent } : m
           )
         );
       }
+
+      console.log('Streaming completed, final content length:', aiContent.length);
 
       const parsed = parseResponse(aiContent);
       if (parsed.stage) {
@@ -522,11 +530,22 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
         );
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Chat error:', error);
+
+      // 에러 종류에 따라 다른 메시지 표시
+      let errorMessage = '죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.';
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = '네트워크 연결에 문제가 있습니다. 잠시 후 다시 시도해 주세요.';
+        } else if (error.message.includes('AbortError')) {
+          errorMessage = '요청이 중단되었습니다. 다시 시도해 주세요.';
+        }
+      }
+
       setMessages(prev =>
         prev.map(m =>
           m.id === tempAiMessage.id
-            ? { ...m, content: '죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.' }
+            ? { ...m, content: errorMessage }
             : m
         )
       );
@@ -652,12 +671,12 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                           {/* 전송 버튼 */}
                           <button
                             onClick={() => {
-                              if (formData.age && formData.gender) {
+                              if (formData.age && formData.gender && !isLoading) {
                                 handleSendWithMessage(`${formData.age}세 ${formData.gender}입니다`);
                                 setFormData({ age: '', gender: '' });
                               }
                             }}
-                            disabled={!formData.age || !formData.gender}
+                            disabled={!formData.age || !formData.gender || isLoading}
                             className="w-full px-4 py-2 bg-[#1a3d6b] text-white text-sm font-semibold rounded-md hover:bg-[#164059] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                           >
                             전송
@@ -671,20 +690,23 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                     {(message.content.includes('건강') || message.content.includes('질환')) && !message.content.includes('가족력') && (
                       <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => handleSendWithMessage("특별한 질환 없음")}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                          onClick={() => !isLoading && handleSendWithMessage("특별한 질환 없음")}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           특별한 질환 없음
                         </button>
                         <button
-                          onClick={() => handleSendWithMessage("고혈압")}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                          onClick={() => !isLoading && handleSendWithMessage("고혈압")}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           고혈압
                         </button>
                         <button
-                          onClick={() => handleSendWithMessage("당뇨")}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                          onClick={() => !isLoading && handleSendWithMessage("당뇨")}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           당뇨
                         </button>
@@ -695,20 +717,23 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                     {message.content.includes('가족력') && (
                       <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => handleSendWithMessage("가족력 없음")}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                          onClick={() => !isLoading && handleSendWithMessage("가족력 없음")}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           가족력 없음
                         </button>
                         <button
-                          onClick={() => handleSendWithMessage("암 가족력")}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                          onClick={() => !isLoading && handleSendWithMessage("암 가족력")}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           암 가족력
                         </button>
                         <button
-                          onClick={() => handleSendWithMessage("심혈관 가족력")}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                          onClick={() => !isLoading && handleSendWithMessage("심혈관 가족력")}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           심혈관 가족력
                         </button>
