@@ -520,8 +520,8 @@ export async function POST(request: NextRequest) {
     const responseContent = choice.message.content ?? '';
 
     // 🔥 강제 툴 실행: 리스크 분석 결과가 있는데 갭 분석이 없으면 강제 실행
-    const hasRiskResults = responseContent.includes('사망:') && responseContent.includes('점') && responseContent.includes('질병:');
-    if (hasRiskResults && !hasGapAnalysis && (forceGapTool || effectiveStage === 3)) {
+    const hasRiskResultsInResponse = responseContent.includes('사망:') && responseContent.includes('점') && responseContent.includes('질병:');
+    if (hasRiskResultsInResponse && !hasGapAnalysis && (forceGapTool || effectiveStage === 3)) {
       console.log('🚀 FORCING GAP ANALYSIS EXECUTION');
 
       // 리스크 점수 추출
