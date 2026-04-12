@@ -410,6 +410,34 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // 리스크 맵 시각화 자동 주입 (리스크 분석 결과 키워드 감지시)
+      if ((fullContent.includes('리스크 분석 결과') || fullContent.includes('점수가 높은 영역')) &&
+          !fullContent.includes('"type": "risk_map"')) {
+
+        // 텍스트에서 리스크 점수 추출
+        const riskScores = {
+          사망: 0, 질병: 0, 상해: 0, 소득중단: 0, 노후: 0
+        };
+
+        const deathMatch = fullContent.match(/사망:\s*(\d+)점?/);
+        const diseaseMatch = fullContent.match(/질병:\s*(\d+)점?/);
+        const injuryMatch = fullContent.match(/상해:\s*(\d+)점?/);
+        const incomeMatch = fullContent.match(/소득중단:\s*(\d+)점?/);
+        const oldAgeMatch = fullContent.match(/노후:\s*(\d+)점?/);
+
+        if (deathMatch) riskScores.사망 = parseInt(deathMatch[1]);
+        if (diseaseMatch) riskScores.질병 = parseInt(diseaseMatch[1]);
+        if (injuryMatch) riskScores.상해 = parseInt(injuryMatch[1]);
+        if (incomeMatch) riskScores.소득중단 = parseInt(incomeMatch[1]);
+        if (oldAgeMatch) riskScores.노후 = parseInt(oldAgeMatch[1]);
+
+        const riskJson = JSON.stringify({
+          type: 'risk_map',
+          data: riskScores
+        });
+        fullContent += `\n\n###VISUALIZATION###\n${riskJson}\n###END_VISUALIZATION###`;
+      }
+
       // 갭 분석 시각화 자동 주입 (갭 분석 결과 키워드 감지시)
       if ((fullContent.includes('갭 분석 결과') || fullContent.includes('보장 갭')) &&
           !fullContent.includes('"type": "gap_analysis"')) {
@@ -426,6 +454,37 @@ export async function POST(request: NextRequest) {
           ]
         });
         fullContent = fullContent.replace(/###VISUALIZATION###.*?###END_VISUALIZATION###/s, `###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`);
+      }
+
+      // 상품 매칭 시각화 자동 주입 (상품 매칭 키워드 감지시)
+      if ((fullContent.includes('상품을 매칭해드리겠습니다') || fullContent.includes('적합한 상품을 매칭')) &&
+          !fullContent.includes('"type": "product_match"')) {
+
+        // 상품 매칭 샘플 데이터 생성
+        const productJson = JSON.stringify({
+          type: 'product_match',
+          data: [
+            {
+              product_name: "KB무배당 착한정기보험II",
+              match_score: 95,
+              monthly_premium: 45000,
+              key_benefits: ["사망보험금 3억원", "재해사망 추가보장"]
+            },
+            {
+              product_name: "KB딱좋은 e-건강보험",
+              match_score: 88,
+              monthly_premium: 35000,
+              key_benefits: ["질병보장 1천만원", "입원비 일당지급"]
+            },
+            {
+              product_name: "KB하이파이브평생연금보험",
+              match_score: 92,
+              monthly_premium: 50000,
+              key_benefits: ["평생연금 지급", "원금보장형"]
+            }
+          ]
+        });
+        fullContent += `\n\n###VISUALIZATION###\n${productJson}\n###END_VISUALIZATION###`;
       }
 
       // Stage 8 final_report 자동 주입 (최종 설계안 키워드 감지시)

@@ -98,34 +98,40 @@ function transformData(type: VizType, rawData: any): any {
     }));
   }
   if (type === 'gap_analysis') {
+    // 백엔드에서 이미 올바른 형식으로 온 데이터는 그대로 사용
+    if (Array.isArray(rawData)) {
+      return rawData.map((item: any) => ({
+        category: item.category,
+        current_coverage: item.current_coverage || 0,
+        recommended_coverage: item.recommended_coverage || 0,
+        gap: item.gap || Math.max(0, (item.recommended_coverage || 0) - (item.current_coverage || 0)),
+        over_coverage: item.over_coverage || Math.max(0, (item.current_coverage || 0) - (item.recommended_coverage || 0)),
+      }));
+    }
+
+    // 구형 객체 형식 데이터 처리 (호환성용)
     return Object.entries(rawData).map(([category, val]: [string, any]) => {
-      // 실제 보험 필요 보장액 계산 로직
       let recommended = 0;
       let current = val.covered || 0;
 
       switch(category) {
         case '사망':
-          // 사망보험: 연소득 × 10년분 기준
-          recommended = Math.round(val.risk * 500); // 리스크 점수당 500만원
+          recommended = Math.round((val.risk || 0) * 500);
           break;
         case '질병':
-          // 질병보험: 치료비 + 소득손실 고려
-          recommended = Math.round(val.risk * 200); // 리스크 점수당 200만원
+          recommended = Math.round((val.risk || 0) * 200);
           break;
         case '상해':
-          // 상해보험: 일시적 치료비 기준
-          recommended = Math.round(val.risk * 100); // 리스크 점수당 100만원
+          recommended = Math.round((val.risk || 0) * 100);
           break;
         case '소득중단':
-          // 소득중단: 월소득 × 12개월 × 지속년수
-          recommended = Math.round(val.risk * 300); // 리스크 점수당 300만원
+          recommended = Math.round((val.risk || 0) * 300);
           break;
         case '노후':
-          // 노후자금: 월 생활비 × 12개월 × 예상생존년수
-          recommended = Math.round(val.risk * 1000); // 리스크 점수당 1000만원
+          recommended = Math.round((val.risk || 0) * 1000);
           break;
         default:
-          recommended = Math.round(val.risk * 400); // 기본값
+          recommended = Math.round((val.risk || 0) * 400);
       }
 
       return {
@@ -238,7 +244,17 @@ export function parseResponse(response: string): ParsedResponse {
     if (result) return result;
   }
 
-  // ── 6. 시각화 없음 ──
+  // ── 6. 시각화 없음 - 남은 마커 완전 제거 ──
+  // 모든 시각화 마커 완전 제거
+  cleaned = cleaned.replace(/###VISUALIZATION###[\s\S]*?###END_VISUALIZATION###/g, '');
+  cleaned = cleaned.replace(/###VISUALIZATION###.*$/s, '');
+  cleaned = cleaned.replace(/.*###END_VISUALIZATION###/s, '');
+  cleaned = cleaned.replace(/###VISUALIZATION###/g, '');
+  cleaned = cleaned.replace(/###END_VISUALIZATION###/g, '');
+
+  // 연속 공백 정리
+  cleaned = cleaned.replace(/\s{3,}/g, '\n\n').trim();
+
   const stage = markerStage ?? inferStageFromText(cleaned);
   return { cleanText: cleaned, stage };
 }
