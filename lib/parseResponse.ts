@@ -18,7 +18,7 @@ function inferStageFromText(text: string, vizType?: string): number | undefined 
   if (text.includes('가입 절차') || text.includes('Final Call')) return 9;
   if (text.includes('최종 설계안') || text.includes('설계안을 확정')) return 8;
   if (text.includes('설계를 조정') || text.includes('조정해드릴')) return 7;
-  if (text.includes('추가로 궁금') || text.includes('질문이 있으시')) return 6;
+  if (text.includes('추가로 궁금') || text.includes('질문이 있으시') || text.includes('궁금한 점') || text.includes('궁금하신 점') || text.includes('질문해주세요') || text.includes('말씀해주세요')) return 6;
   if (text.includes('고지의무')) return 4;
   if (text.includes('보장 갭') || text.includes('갭 분석')) return 3;
   if (text.includes('리스크 점수') || text.includes('리스크 지도')) return 2;

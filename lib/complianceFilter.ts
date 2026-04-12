@@ -273,17 +273,20 @@ export function checkHallucination(text: string): HallucinationCheckResult {
       hasNonStandardAge = true;
       break;
     }
-    // 유효 나이면 KNOWN_PREMIUMS와 금액 대조 (5% 허용)
+    // 유효 나이면 KNOWN_PREMIUMS와 금액 대조 — 어떤 상품에도 맞지 않을 때만 경고
     const amount = parseInt(m[2].replace(/,/g, ''));
     const ageStr = age.toString();
+    let matchedAny = false;
     for (const [, genderData] of Object.entries(KNOWN_PREMIUMS)) {
       for (const [, ageData] of Object.entries(genderData)) {
         const known = ageData[ageStr];
-        if (known && Math.abs(amount - known) / known > 0.05) {
-          // 금액이 5% 이상 차이나면 경고
-          warnings.push(`${age}세 보험료 ${m[2]}원이 공시 데이터와 차이가 있을 수 있습니다.`);
+        if (known && Math.abs(amount - known) / known <= 0.05) {
+          matchedAny = true;
         }
       }
+    }
+    if (!matchedAny) {
+      warnings.push(`${age}세 보험료 ${m[2]}원이 공시 데이터와 차이가 있을 수 있습니다.`);
     }
   }
 
@@ -294,9 +297,10 @@ export function checkHallucination(text: string): HallucinationCheckResult {
     }
   }
 
-  // 경고가 있으면 응답 끝에 면책 문구 추가
-  if (warnings.length > 0) {
-    filtered += '\n\n> **[정확성 안내]** ' + warnings.join(' ') + ' 정확한 내용은 KB라이프(1588-9922)에 확인하시기 바랍니다.';
+  // 경고가 있으면 응답 끝에 면책 문구 추가 (중복 제거, 최대 1문장)
+  const uniqueWarnings = [...new Set(warnings)];
+  if (uniqueWarnings.length > 0) {
+    filtered += '\n\n> **[정확성 안내]** ' + uniqueWarnings[0] + ' 정확한 내용은 KB라이프(1588-9922)에 확인하시기 바랍니다.';
   }
 
   return { hasIssue: warnings.length > 0 || hasNonStandardAge, warnings, filtered };
