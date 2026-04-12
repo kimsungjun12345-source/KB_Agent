@@ -472,6 +472,49 @@ export async function POST(request: NextRequest) {
       // 대화에서 필요한 매개변수 추출
       const allText = messages.map((m: any) => m.content ?? '').join('\n');
 
+      if (toolName === 'gap_analysis') {
+        // 이전 메시지에서 리스크 점수 추출
+        const riskScoreMatch = allText.match(/risk_scores[^}]+\{[^}]+\}/);
+        if (riskScoreMatch) {
+          try {
+            const riskData = JSON.parse(riskScoreMatch[0].replace('risk_scores', '').replace(/[^{]*/, ''));
+            const existingInsurance = allText.includes('실손') ? [{ type: '실손', coverage_amount: '1억미만' }] : [];
+
+            const gapInput = {
+              risk_scores: riskData,
+              existing_insurances: existingInsurance
+            };
+
+            console.log('Executing gap analysis with extracted params:', gapInput);
+            const toolResult = calculateGapAnalysis(gapInput);
+            console.log('Gap analysis result:', toolResult);
+
+            const cleanedContent = responseContent.replace(/print\([^)]+\)/, '').trim();
+            const vizJson = JSON.stringify({
+              type: 'gap_analysis',
+              data: {
+                사망: { risk: toolResult.사망?.risk ?? 0, covered: toolResult.사망?.covered ?? 0 },
+                질병: { risk: toolResult.질병?.risk ?? 0, covered: toolResult.질병?.covered ?? 0 },
+                상해: { risk: toolResult.상해?.risk ?? 0, covered: toolResult.상해?.covered ?? 0 },
+                소득중단: { risk: toolResult.소득중단?.risk ?? 0, covered: toolResult.소득중단?.covered ?? 0 },
+                노후: { risk: toolResult.노후?.risk ?? 0, covered: toolResult.노후?.covered ?? 0 },
+              },
+            });
+            const finalContent = `${cleanedContent}\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
+
+            const readable = new ReadableStream({
+              start(controller) {
+                controller.enqueue(encoder.encode(finalContent));
+                controller.close();
+              },
+            });
+            return new Response(readable, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+          } catch (error) {
+            console.error('Gap analysis parsing error:', error);
+          }
+        }
+      }
+
       if (toolName === 'risk_scores') {
         // STAGE 1 정보에서 매개변수 추출
         const ageMatch = allText.match(/(\d{2,3})\s*(?:세|살)/);

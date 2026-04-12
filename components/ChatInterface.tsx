@@ -106,23 +106,6 @@ function RiskRadar({ data }: { data: { category: string; risk_level: number; ind
         })}
       </div>
 
-      {/* 다음 단계 버튼 */}
-      <div className="mt-4 pt-3 border-t border-[#e4e7ed]">
-        <button
-          onClick={() => {
-            // 자동으로 보장 갭 분석을 요청하는 메시지 전송
-            const event = new CustomEvent('sendNextStageMessage', {
-              detail: { message: '이제 현재 보장 상태를 점검하고 보장 갭을 분석해주세요.' }
-            });
-            window.dispatchEvent(event);
-          }}
-          className="w-full py-2.5 px-4 bg-[#F5C400] hover:bg-[#E6B500] text-[#1A1A1A] text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-        >
-          <span>📊</span>
-          <span>보장 갭 분석하기</span>
-          <span>→</span>
-        </button>
-      </div>
     </div>
   );
 }
@@ -206,22 +189,6 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
         </div>
       )}
 
-      {/* 다음 단계 버튼 */}
-      <div className="mt-4 pt-3 border-t border-[#e4e7ed]">
-        <button
-          onClick={() => {
-            const event = new CustomEvent('sendNextStageMessage', {
-              detail: { message: '맞춤형 상품을 추천해주세요. 제가 필요한 보장에 가장 적합한 상품을 찾아주세요.' }
-            });
-            window.dispatchEvent(event);
-          }}
-          className="w-full py-2.5 px-4 bg-[#1a3d6b] hover:bg-[#164059] text-white text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-        >
-          <span>🎯</span>
-          <span>맞춤 상품 추천받기</span>
-          <span>→</span>
-        </button>
-      </div>
     </div>
   );
 }
@@ -417,23 +384,6 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
     }
   }, [messages, userName]);
 
-  // 다음 단계 이벤트 리스너
-  useEffect(() => {
-    const handleNextStageMessage = (event: CustomEvent) => {
-      if (!isLoading) {
-        setCurrentMessage(event.detail.message);
-        // 약간의 지연 후 자동으로 전송
-        setTimeout(() => {
-          handleSendWithMessage(event.detail.message);
-        }, 100);
-      }
-    };
-
-    window.addEventListener('sendNextStageMessage', handleNextStageMessage as EventListener);
-    return () => {
-      window.removeEventListener('sendNextStageMessage', handleNextStageMessage as EventListener);
-    };
-  }, [isLoading]);
 
   // 입력창 자동 포커스 - 메시지 전송 후와 로딩 완료 후
   useEffect(() => {
