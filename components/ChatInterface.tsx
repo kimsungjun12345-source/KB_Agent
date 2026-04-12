@@ -776,6 +776,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                               최종 설계안 확정 →
                             </button>
                           </div>
+                        </div>
                       )}
 
                       {/* final_report */}
