@@ -254,59 +254,44 @@ export function parseResponse(response: string): ParsedResponse {
   cleaned = cleaned.replace(/###VISUALIZATION###/g, '');
   cleaned = cleaned.replace(/###END_VISUALIZATION###/g, '');
 
-  // 💀 완전한 JSON 제거 - 괄호 균형 기반 강력 제거
-  function removeAllVisualizationJson(text: string): string {
+  // 🔥 핵폭탄급 JSON 제거 - 무차별 제거
+  function bruteForceBareJsonRemoval(text: string): string {
     let result = text;
-    let changed = true;
 
-    // 반복적으로 JSON 객체 제거 (중첩된 것까지 완전히)
-    while (changed) {
-      const before = result.length;
+    // 1. 모든 JSON 패턴을 여러 번 반복 제거
+    for (let i = 0; i < 5; i++) {
+      // 시각화 타입을 포함한 모든 JSON 객체
+      result = result.replace(/\{[^{}]*"type"[^{}]*"(?:risk_map|gap_analysis|product_match|final_report)"[^{}]*\}/g, '');
 
-      // 1. 정확한 괄호 균형으로 JSON 객체 찾기
-      for (let i = 0; i < result.length; i++) {
-        if (result[i] === '{') {
-          let depth = 0;
-          let j = i;
-          let inString = false;
-          let escaped = false;
+      // 한국어 필드를 포함한 JSON 객체
+      result = result.replace(/\{[^{}]*"사망"[^{}]*\d+[^{}]*\}/g, '');
+      result = result.replace(/\{[^{}]*"질병"[^{}]*\d+[^{}]*\}/g, '');
+      result = result.replace(/\{[^{}]*"상해"[^{}]*\d+[^{}]*\}/g, '');
 
-          while (j < result.length) {
-            const ch = result[j];
-            if (escaped) { escaped = false; j++; continue; }
-            if (ch === '\\' && inString) { escaped = true; j++; continue; }
-            if (ch === '"') { inString = !inString; j++; continue; }
-            if (inString) { j++; continue; }
-            if (ch === '{') depth++;
-            else if (ch === '}') { depth--; if (depth === 0) break; }
-            j++;
-          }
+      // product_name을 포함한 JSON 객체
+      result = result.replace(/\{[^{}]*"product_name"[^{}]*\}/g, '');
 
-          if (depth === 0) {
-            const candidate = result.slice(i, j + 1);
-            // 시각화 JSON인지 확인
-            if (candidate.includes('"type"') &&
-                (candidate.includes('"risk_map"') ||
-                 candidate.includes('"gap_analysis"') ||
-                 candidate.includes('"product_match"') ||
-                 candidate.includes('"final_report"') ||
-                 candidate.includes('"사망"') ||
-                 candidate.includes('"질병"') ||
-                 candidate.includes('"product_name"'))) {
-              result = result.slice(0, i) + result.slice(j + 1);
-              break;
-            }
-          }
-        }
-      }
-
-      changed = result.length !== before;
+      // 모든 중첩된 JSON 제거 (더 강력하게)
+      result = result.replace(/\{[\s\S]*?"type"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"사망"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"data"[\s\S]*?\}/g, '');
     }
+
+    // 2. 줄바꿈이 있는 JSON도 제거
+    result = result.replace(/\n\{[\s\S]*?"type"[\s\S]*?\}\n/g, '\n');
+    result = result.replace(/\s\{[\s\S]*?"type"[\s\S]*?\}\s/g, ' ');
+
+    // 3. 마지막 안전장치 - 중괄호로 시작하는 모든 라인 제거
+    result = result.split('\n')
+      .filter(line => !line.trim().startsWith('{"type"'))
+      .filter(line => !line.includes('"사망":'))
+      .filter(line => !line.includes('"product_name"'))
+      .join('\n');
 
     return result;
   }
 
-  cleaned = removeAllVisualizationJson(cleaned);
+  cleaned = bruteForceBareJsonRemoval(cleaned);
 
   // 연속 공백 정리
   cleaned = cleaned.replace(/\s{3,}/g, '\n\n').trim();
