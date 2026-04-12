@@ -476,31 +476,8 @@ export async function POST(request: NextRequest) {
         fullContent += `\n\n###VISUALIZATION###\n${productJson}\n###END_VISUALIZATION###`;
       }
 
-      // 📊 시각화만 자동 주입 (텍스트 중복 없이)
-      if ((fullContent.includes('분석 결과를 바탕으로 적합한 상품을 매칭') || fullContent.includes('상품을 매칭한 결과')) &&
-          !fullContent.includes('"type": "final_report"')) {
-
-        console.log('🎯 상품 매칭 완료 감지 - 최종 설계안 시각화 자동 생성');
-
-        const finalProducts = [
-          { name: "KB무배당 착한정기보험II", premium: 45000 },
-          { name: "KB딱좋은 e-건강보험", premium: 35000 },
-          { name: "KB하이파이브평생연금보험", premium: 50000 }
-        ];
-
-        const totalPremium = finalProducts.reduce((sum, p) => sum + p.premium, 0);
-
-        const finalReportJson = JSON.stringify({
-          type: 'final_report',
-          data: {
-            total_premium: totalPremium,
-            products: finalProducts
-          }
-        });
-
-        fullContent += `\n\n###VISUALIZATION###\n${finalReportJson}\n###END_VISUALIZATION###`;
-        console.log('✅ 최종 설계안 시각화 주입 완료');
-      }
+      // 💀 final_report JSON 주입도 완전 차단
+      console.log('final_report JSON 주입 차단됨');
 
       const readable = new ReadableStream({
         start(controller) {
@@ -698,16 +675,29 @@ export async function POST(request: NextRequest) {
     const guardrailResult2 = applyGuardrails(responseContent, effectiveStage, lastUserMsg?.content);
     let content = guardrailResult2.text;
 
-    // 💀🔥 FINAL NUCLEAR JSON REMOVAL - 모든 JSON 패턴 완전 제거
-    content = content.replace(/\{[\s\S]*?"type"[\s\S]*?"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
-    content = content.replace(/\{[^{}]*"사망"[^{}]*\d+[^{}]*\}/g, '');
-    content = content.replace(/\{[^{}]*"질병"[^{}]*\d+[^{}]*\}/g, '');
-    content = content.replace(/\{[^{}]*"상해"[^{}]*\d+[^{}]*\}/g, '');
-    content = content.replace(/\{[^{}]*"소득중단"[^{}]*\d+[^{}]*\}/g, '');
-    content = content.replace(/\{[^{}]*"노후"[^{}]*\d+[^{}]*\}/g, '');
-    content = content.replace(/\{[^{}]*"product_name"[^{}]*\}/g, '');
-    content = content.replace(/\{.*?"type".*?\}/g, '');
-    content = content.split('\n').filter(line => !line.trim().match(/^\s*\{.*"type".*\}\s*$/)).join('\n');
+    // 💀🔥 ULTRA NUCLEAR JSON REMOVAL - 모든 JSON 패턴 완전 제거
+    for (let i = 0; i < 10; i++) {
+      content = content.replace(/\{[\s\S]*?"type"[\s\S]*?"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
+      content = content.replace(/\{[^{}]*"사망"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"질병"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"상해"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"소득중단"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"노후"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"product_name"[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"name"[^{}]*"KB[^}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"premium"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{[^{}]*"total_premium"[^{}]*\d+[^{}]*\}/g, '');
+      content = content.replace(/\{.*?"type".*?\}/g, '');
+      content = content.replace(/\{.*?"data".*?\}/g, '');
+    }
+    // 줄별로도 JSON 제거
+    content = content.split('\n').filter(line => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith('{"type"') &&
+             !trimmed.includes('"type":"') &&
+             !trimmed.includes('"data":') &&
+             !trimmed.match(/^\s*\{.*\}\s*$/);
+    }).join('\n');
     content = content.replace(/\s{3,}/g, '\n\n').trim();
 
     if (!content.trim()) {
