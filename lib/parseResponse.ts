@@ -34,16 +34,22 @@ export function parseResponse(response: string): ParsedResponse {
   const markerStage = stageMatch ? parseInt(stageMatch[1]) : undefined;
   let cleaned = normalized.replace(/###STAGE:\d###\s*/g, '').trim();
 
+  // 잔여 마커 파편 제거 (# 개수 무관)
+  cleaned = cleaned.replace(/#+\s*END_VISUALIZATION\s*#+/g, '');
+  cleaned = cleaned.replace(/#+\s*VISUALIZATION\s*#+/g, '');
+  cleaned = cleaned.replace(/#END_VISUALIZATION[#]*/g, '');
+  cleaned = cleaned.replace(/[#]+END_VISUALIZATION/g, '');
+
   // ── 2. VISUALIZATION 마커 정규화 ──
   // HTML 태그로 감싼 경우 벗겨냄: <details><summary>...</summary> ###VIZ...### </details>
   cleaned = cleaned.replace(/<details[^>]*>[\s\S]*?<\/summary>\s*/gi, '');
   cleaned = cleaned.replace(/<\/details>/gi, '');
 
-  // 다양한 마커 포맷 정규화
+  // 다양한 마커 포맷 정규화 (# 1개 이상 모두 처리)
   cleaned = cleaned
-    .replace(/#{2,}\s*VISUALIZATION\s*#{2,}/g, '###VISUALIZATION###')
-    .replace(/#{2,}\s*END_VISUALIZATION\s*#{2,}/g, '###END_VISUALIZATION###')
-    .replace(/#{2,}\s*END\s+VISUALIZATION\s*#{2,}/g, '###END_VISUALIZATION###');
+    .replace(/#+\s*VISUALIZATION\s*#+/g, '###VISUALIZATION###')
+    .replace(/#+\s*END_VISUALIZATION\s*#+/g, '###END_VISUALIZATION###')
+    .replace(/#+\s*END\s+VISUALIZATION\s*#+/g, '###END_VISUALIZATION###');
 
   // 코드블록으로 감싼 경우 벗겨냄
   cleaned = cleaned.replace(/```(?:json)?\s*(###VISUALIZATION###[\s\S]*?###END_VISUALIZATION###)\s*```/g, '$1');
