@@ -252,6 +252,10 @@ export function parseResponse(response: string): ParsedResponse {
   cleaned = cleaned.replace(/###VISUALIZATION###/g, '');
   cleaned = cleaned.replace(/###END_VISUALIZATION###/g, '');
 
+  // bare JSON 시각화 객체 제거 (줄바꿈 포함/불포함 모두)
+  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[^}]*\{[^}]*\}[^}]*\}/g, '');
+  cleaned = cleaned.replace(/\n\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}\}/g, '');
+
   // 연속 공백 정리
   cleaned = cleaned.replace(/\s{3,}/g, '\n\n').trim();
 
