@@ -24,10 +24,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
       {/* App header */}
-      <header className="h-14 bg-white border-b border-[#e4e7ed] flex items-center px-5 lg:px-7 fixed top-0 left-0 right-0 z-50">
+      <header className="h-14 bg-white border-b-[3px] border-b-[#F5C400] flex items-center px-5 lg:px-7 fixed top-0 left-0 right-0 z-50">
         <div className="flex items-center space-x-3 flex-shrink-0">
           <div className="w-7 h-7 bg-[#1a3d6b] rounded-md flex items-center justify-center">
-            <span className="text-white font-bold text-xs tracking-tight">KB</span>
+            <span className="text-[#F5C400] font-bold text-xs tracking-tight">KB</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-sm font-semibold text-[#111827]">KB라이프</span>
@@ -55,7 +55,7 @@ export default function HomePage() {
       {/* Mobile progress bar */}
       <div className="lg:hidden fixed top-14 left-0 right-0 z-40 bg-white border-b border-[#e4e7ed]">
         <div
-          className="h-[2px] bg-[#1a3d6b] transition-all duration-500"
+          className="h-[3px] bg-[#F5C400] transition-all duration-500"
           style={{ width: `${(currentStage / 9) * 100}%` }}
         />
       </div>

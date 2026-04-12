@@ -87,7 +87,7 @@ export function parseResponse(response: string): ParsedResponse {
       parsed = JSON.parse(jsonStr);
     } catch (error) {
       console.error('Failed to parse visualization data:', error);
-      return { text: response };
+      return { cleanText: response };
     }
 
     const type = parsed.type as 'risk_map' | 'gap_analysis' | 'product_match' | 'final_report';

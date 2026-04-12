@@ -20,6 +20,12 @@
   --text-secondary: #4b5563;
   --text-muted: #9ca3af;
 
+  /* KB Gold */
+  --gold: #F5C400;
+  --gold-dark: #D4A900;
+  --gold-light: #FFF9DC;
+  --gold-mid: #FFE566;
+
   --action: #2563eb;
   --action-light: #eff6ff;
   --action-border: #bfdbfe;

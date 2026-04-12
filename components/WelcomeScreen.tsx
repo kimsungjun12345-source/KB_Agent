@@ -25,8 +25,8 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
 
         {/* Brand mark */}
         <div className="flex items-center space-x-3 mb-10">
-          <div className="w-9 h-9 bg-[#1a3d6b] rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm tracking-tight">KB</span>
+          <div className="w-9 h-9 bg-[#1a3d6b] rounded-lg flex items-center justify-center border-b-2 border-[#F5C400]">
+            <span className="font-bold text-sm tracking-tight" style={{ color: '#F5C400' }}>KB</span>
           </div>
           <div>
             <div className="text-sm font-semibold text-[#1a3d6b] leading-none">KB라이프생명</div>
@@ -119,7 +119,8 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="btn-primary w-full py-3 px-5 text-sm"
+              className="w-full py-3 px-5 text-sm font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: canSubmit ? '#F5C400' : '#e5e7eb', color: '#1A1A1A' }}
             >
               {canSubmit ? '진단 시작하기' : '성함 입력 및 동의 필요'}
             </button>

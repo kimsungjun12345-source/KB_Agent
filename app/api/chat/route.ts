@@ -316,10 +316,11 @@ export async function POST(request: NextRequest) {
     // 툴 콜이 발생한 경우 (finish_reason이 모델마다 다를 수 있으므로 tool_calls 존재 여부로 판단)
     if (choice.message.tool_calls?.length) {
       const toolCall = choice.message.tool_calls[0];
-      const args = JSON.parse(toolCall.function.arguments);
+      const fn = (toolCall as any).function;
+      const args = JSON.parse(fn.arguments);
 
       let toolResult: object;
-      if (toolCall.function.name === 'calculate_gap_analysis') {
+      if (fn.name === 'calculate_gap_analysis') {
         toolResult = calculateGapAnalysis(args as GapInput);
       } else {
         toolResult = calculateRiskScores(args as RiskInput);

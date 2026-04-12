@@ -30,15 +30,15 @@ export default function ProgressSidebar({ currentStage }: ProgressSidebarProps) 
           <span className="text-xs font-semibold text-[#374151] uppercase tracking-wide">
             상담 진행
           </span>
-          <span className="text-xs font-semibold text-[#1a3d6b]">
+          <span className="text-xs font-semibold text-[#D4A900]">
             {currentStage} / 9
           </span>
         </div>
         {/* Progress track */}
         <div className="w-full h-1 bg-[#e4e7ed] rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#1a3d6b] rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${progressPct}%` }}
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPct}%`, background: '#F5C400' }}
           />
         </div>
         <div className="text-[11px] text-[#9ca3af] mt-1.5">{progressPct}% 완료</div>
@@ -57,7 +57,7 @@ export default function ProgressSidebar({ currentStage }: ProgressSidebarProps) 
                 key={stage.id}
                 className={`flex items-start space-x-3 px-3 py-3 rounded-lg transition-colors ${
                   isCurrent
-                    ? 'bg-[#eef2f8]'
+                    ? 'bg-[#FFF9DC]'
                     : isCompleted
                     ? 'hover:bg-[#f9fafb]'
                     : 'opacity-50'
@@ -72,8 +72,8 @@ export default function ProgressSidebar({ currentStage }: ProgressSidebarProps) 
                       </svg>
                     </div>
                   ) : isCurrent ? (
-                    <div className="w-6 h-6 rounded-full bg-[#1a3d6b] flex items-center justify-center">
-                      <span className="text-white text-[10px] font-bold">{stage.id}</span>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#F5C400' }}>
+                      <span className="text-[#1A1A1A] text-[10px] font-bold">{stage.id}</span>
                     </div>
                   ) : (
                     <div className="w-6 h-6 rounded-full border border-[#d1d5db] flex items-center justify-center">
