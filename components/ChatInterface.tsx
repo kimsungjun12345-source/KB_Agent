@@ -191,11 +191,145 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
   );
 }
 
+/* ─── Stage 9 완료 화면 ─── */
+function CompletionCard({ messages, userName }: { messages: Message[]; userName: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const allVizs = messages.flatMap(m => m.visualizations || []);
+  const riskData = allVizs.find(v => v.type === 'risk_map')?.data as { category: string; risk_level: number }[] | undefined;
+  const productData = allVizs.find(v => v.type === 'product_match')?.data as { product_name: string; monthly_premium: number; key_benefits: string[] }[] | undefined;
+  const finalData = allVizs.find(v => v.type === 'final_report')?.data;
+
+  const totalPremium: number =
+    finalData?.total_premium ??
+    (productData?.reduce((sum: number, p: any) => sum + (p.monthly_premium || 0), 0) ?? 0);
+
+  const handleCopy = () => {
+    let text = `[KB라이프 보험 설계 요약 — ${userName}님]\n\n`;
+    if (riskData) {
+      text += `■ 리스크 프로파일\n`;
+      riskData.forEach((r: any) => {
+        text += `• ${r.category}: ${Math.round(r.risk_level / 10)}점\n`;
+      });
+      text += '\n';
+    }
+    if (productData) {
+      text += `■ 추천 상품\n`;
+      productData.forEach((p: any) => {
+        text += `• ${p.product_name}: ${p.monthly_premium?.toLocaleString()}원/월\n`;
+        if (p.key_benefits?.[1]) text += `  → ${p.key_benefits[1]}\n`;
+      });
+      text += '\n';
+    }
+    if (totalPremium > 0) text += `■ 총 월납 보험료: ${totalPremium.toLocaleString()}원\n\n`;
+    text += `상담 문의: 1588-9922 (평일 09:00–18:00)\n최종 가입은 KB라이프를 통해 진행됩니다.`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="mx-4 lg:mx-8 mb-6 rounded-2xl overflow-hidden border border-[#F5C400] shadow-[0_4px_20px_rgba(245,196,0,0.18)]">
+      {/* 헤더 */}
+      <div className="px-5 py-4 flex items-center justify-between" style={{ background: '#1a3d6b' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#F5C400' }}>
+            <span className="font-bold text-[11px] text-[#1A1A1A]">KB</span>
+          </div>
+          <div>
+            <div className="text-white text-sm font-bold">보험 설계 완료</div>
+            <div className="text-[#9cb8d8] text-[11px] mt-0.5">{userName}님의 맞춤 설계안이 준비되었습니다</div>
+          </div>
+        </div>
+        <div className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#F5C400', color: '#1A1A1A' }}>
+          설계 완료
+        </div>
+      </div>
+
+      <div className="bg-white p-5 space-y-4">
+        {/* 리스크 프로파일 */}
+        {riskData && (
+          <div>
+            <div className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wide mb-2">리스크 프로파일</div>
+            <div className="flex flex-wrap gap-2">
+              {riskData.map((r: any) => {
+                const score = Math.round(r.risk_level / 10);
+                const isHigh = score >= 7;
+                const isMid = score >= 4;
+                return (
+                  <div key={r.category} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs"
+                    style={{ background: isHigh ? '#FFEBEE' : isMid ? '#FFF9DC' : '#F4F4F4' }}>
+                    <span className="font-semibold" style={{ color: isHigh ? '#C62828' : isMid ? '#856A00' : '#6b7280' }}>{r.category}</span>
+                    <span className="font-bold" style={{ color: isHigh ? '#C62828' : isMid ? '#856A00' : '#9ca3af' }}>{score}점</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 추천 상품 */}
+        {productData && (
+          <div>
+            <div className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wide mb-2">추천 상품</div>
+            <div className="space-y-1.5">
+              {productData.map((p: any, i: number) => (
+                <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#f9fafb] border border-[#e4e7ed]">
+                  <span className="text-sm font-medium text-[#111827]">{p.product_name}</span>
+                  <span className="text-sm font-bold text-[#1a3d6b] flex-shrink-0 ml-3">{p.monthly_premium?.toLocaleString()}원<span className="text-[11px] font-normal text-[#9ca3af]">/월</span></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 총 보험료 */}
+        {totalPremium > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#F5C400]" style={{ background: '#FFF9DC' }}>
+            <span className="text-sm font-semibold text-[#374151]">총 월납 보험료</span>
+            <span className="text-xl font-bold text-[#1a3d6b]">
+              {totalPremium.toLocaleString()}원<span className="text-sm font-normal text-[#9ca3af]">/월</span>
+            </span>
+          </div>
+        )}
+
+        {/* CTA 버튼들 */}
+        <div className="flex gap-2 pt-1">
+          <a
+            href="tel:15889922"
+            className="flex-1 py-3 rounded-xl text-sm font-bold text-center"
+            style={{ background: '#F5C400', color: '#1A1A1A' }}
+          >
+            1588-9922 전화 상담
+          </a>
+          <button
+            onClick={handleCopy}
+            className="px-4 py-3 rounded-xl text-sm font-bold border border-[#e4e7ed] text-[#374151] hover:bg-[#f9fafb] transition-colors flex-shrink-0"
+          >
+            {copied ? '복사됨 ✓' : '설계 복사'}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-3 rounded-xl text-sm font-bold border border-[#e4e7ed] text-[#374151] hover:bg-[#f9fafb] transition-colors flex-shrink-0"
+          >
+            저장
+          </button>
+        </div>
+
+        <div className="text-[11px] text-[#9ca3af] text-center">
+          최종 보험 가입은 KB라이프 담당자를 통해 진행됩니다
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatInterface({ userName, currentStage, onStageChange }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: `안녕하세요 ${userName}님. KB라이프 디지털 보험 설계 시스템입니다.\n\n통계청 데이터를 기반으로 객관적인 리스크 분석을 진행하고, 최적화된 보험 설계안을 제시해 드립니다.\n\n총 9단계에 걸쳐 체계적으로 진행되며 약 10–15분 소요됩니다:\n\n**1–3단계**: 정보 수집 → 리스크 진단 → 보장갭 분석\n**4–6단계**: 제도 안내 → 상품 추천 → 상세 상담\n**7–9단계**: 설계 조정 → 최종 확인 → 가입 안내\n\n먼저 **기본 정보 수집**을 시작하겠습니다. 나이와 성별을 알려주시겠어요?`,
+      content: `안녕하세요 ${userName}님, 지금 가장 걱정되시는 게 무엇인가요?`,
       isUser: false,
       timestamp: new Date()
     }
@@ -355,10 +489,19 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                         {viz.type === 'final_report'  && '최종 설계안'}
                       </span>
                       <span
-                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-full"
+                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-full cursor-default"
                         style={{ background: '#FFF9DC', color: '#856A00' }}
+                        title={
+                          viz.type === 'risk_map' || viz.type === 'gap_analysis'
+                            ? '출처: 통계청 2024년 생명표 · 질병 사망률 · 직업별 재해율'
+                            : undefined
+                        }
                       >
-                        통계청 데이터 기반
+                        {viz.type === 'product_match'
+                          ? '공시 데이터 기반 · 수수료 무관'
+                          : (viz.type === 'risk_map' || viz.type === 'gap_analysis')
+                          ? '통계청 2024 생명표 기반 ⓘ'
+                          : '통계청 데이터 기반'}
                       </span>
                     </div>
 
@@ -388,9 +531,9 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                               </div>
                               <div className="flex items-center justify-between text-[11px] mt-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {product.key_benefits?.slice(0, 2).map((b, j) => (
-                                    <span key={j} className="bg-[#f5f7fa] text-[#6b7280] px-1.5 py-0.5 rounded">{b}</span>
-                                  ))}
+                                  {product.key_benefits?.[0] && (
+                                    <span className="bg-[#f5f7fa] text-[#6b7280] px-1.5 py-0.5 rounded">{product.key_benefits[0]}</span>
+                                  )}
                                 </div>
                                 <span
                                   className="px-2 py-0.5 rounded font-bold ml-2 flex-shrink-0 text-[11px]"
@@ -399,6 +542,12 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                                   {product.match_score}점
                                 </span>
                               </div>
+                              {product.key_benefits?.[1] && (
+                                <div className="mt-2.5 pt-2.5 border-t border-[#f0f0f0]">
+                                  <div className="text-[10px] font-semibold text-[#9ca3af] uppercase tracking-wide mb-1">이 상품이 선택된 이유</div>
+                                  <div className="text-xs text-[#374151] leading-relaxed">{product.key_benefits[1]}</div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -458,6 +607,8 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
             </div>
           </div>
         )}
+
+        {currentStage >= 9 && <CompletionCard messages={messages} userName={userName} />}
 
         <div ref={messagesEndRef} />
       </div>

@@ -4,6 +4,17 @@ interface ProgressSidebarProps {
   currentStage: number;
 }
 
+const NEXT_PREVIEW: Record<number, string> = {
+  1: '다음: 통계 기반 리스크 점수 산출',
+  2: '다음: 현재 보장과 필요 보장 비교',
+  3: '다음: 고지의무 등 제도 안내',
+  4: '다음: 맞춤 상품 추천',
+  5: '다음: 보장 내용 상세 질의응답',
+  6: '다음: 보험료·보장 조정',
+  7: '다음: 최종 설계안 확정',
+  8: '다음: KB라이프 가입 절차 안내',
+};
+
 const STAGES = [
   { id: 1, title: '기본 정보 수집',   description: '나이, 직업, 가족 구성' },
   { id: 2, title: '리스크 프로파일링', description: '통계 기반 위험도 진단' },
@@ -97,12 +108,19 @@ export default function ProgressSidebar({ currentStage }: ProgressSidebarProps) 
                     </div>
                   )}
                   {isCurrent && (
-                    <div className="flex items-center space-x-1 mt-2">
-                      <div className="thinking-dot" />
-                      <div className="thinking-dot" />
-                      <div className="thinking-dot" />
-                      <span className="text-[10px] text-[#9ca3af] ml-1.5">진행 중</span>
-                    </div>
+                    <>
+                      <div className="flex items-center space-x-1 mt-2">
+                        <div className="thinking-dot" />
+                        <div className="thinking-dot" />
+                        <div className="thinking-dot" />
+                        <span className="text-[10px] text-[#9ca3af] ml-1.5">진행 중</span>
+                      </div>
+                      {NEXT_PREVIEW[stage.id] && (
+                        <div className="mt-2 text-[10px] text-[#D4A900] leading-snug">
+                          {NEXT_PREVIEW[stage.id]}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
