@@ -252,28 +252,59 @@ export function parseResponse(response: string): ParsedResponse {
   cleaned = cleaned.replace(/###VISUALIZATION###/g, '');
   cleaned = cleaned.replace(/###END_VISUALIZATION###/g, '');
 
-  // bare JSON 시각화 객체 제거 - 훨씬 더 강력한 패턴들
-  // 1. 기본 단일 라인 JSON 객체
-  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[^}]*\}/g, '');
+  // 💀 완전한 JSON 제거 - 괄호 균형 기반 강력 제거
+  function removeAllVisualizationJson(text: string): string {
+    let result = text;
+    let changed = true;
 
-  // 2. 중첩된 JSON 객체 (data 프로퍼티 포함)
-  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?"data"\s*:\s*\{[\s\S]*?\}\s*\}/g, '');
+    // 반복적으로 JSON 객체 제거 (중첩된 것까지 완전히)
+    while (changed) {
+      const before = result.length;
 
-  // 3. 배열 형태의 data를 가진 JSON
-  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?"data"\s*:\s*\[[\s\S]*?\]\s*\}/g, '');
+      // 1. 정확한 괄호 균형으로 JSON 객체 찾기
+      for (let i = 0; i < result.length; i++) {
+        if (result[i] === '{') {
+          let depth = 0;
+          let j = i;
+          let inString = false;
+          let escaped = false;
 
-  // 4. 줄바꿈이 있는 모든 JSON 객체들
-  cleaned = cleaned.replace(/\n\s*\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}\s*(?:\n|$)/g, '\n');
+          while (j < result.length) {
+            const ch = result[j];
+            if (escaped) { escaped = false; j++; continue; }
+            if (ch === '\\' && inString) { escaped = true; j++; continue; }
+            if (ch === '"') { inString = !inString; j++; continue; }
+            if (inString) { j++; continue; }
+            if (ch === '{') depth++;
+            else if (ch === '}') { depth--; if (depth === 0) break; }
+            j++;
+          }
 
-  // 5. 문장 중간에 붙어있는 JSON
-  cleaned = cleaned.replace(/([.!?])\s*\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '$1');
+          if (depth === 0) {
+            const candidate = result.slice(i, j + 1);
+            // 시각화 JSON인지 확인
+            if (candidate.includes('"type"') &&
+                (candidate.includes('"risk_map"') ||
+                 candidate.includes('"gap_analysis"') ||
+                 candidate.includes('"product_match"') ||
+                 candidate.includes('"final_report"') ||
+                 candidate.includes('"사망"') ||
+                 candidate.includes('"질병"') ||
+                 candidate.includes('"product_name"'))) {
+              result = result.slice(0, i) + result.slice(j + 1);
+              break;
+            }
+          }
+        }
+      }
 
-  // 6. 모든 남은 JSON 객체 흔적 제거
-  cleaned = cleaned.replace(/\{[\s\S]*?"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
+      changed = result.length !== before;
+    }
 
-  // 7. 마지막 안전장치: 알려진 시각화 타입을 포함한 모든 중괄호 블록
-  const vizTypePattern = /\{[^{}]*(?:"(?:risk_map|gap_analysis|product_match|final_report)"|"사망"\s*:\s*\d+|"질병"\s*:\s*\d+|"product_name")[^{}]*\}/g;
-  cleaned = cleaned.replace(vizTypePattern, '');
+    return result;
+  }
+
+  cleaned = removeAllVisualizationJson(cleaned);
 
   // 연속 공백 정리
   cleaned = cleaned.replace(/\s{3,}/g, '\n\n').trim();
