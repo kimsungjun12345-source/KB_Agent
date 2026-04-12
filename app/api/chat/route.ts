@@ -82,6 +82,14 @@ const GAP_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY;
 const DEMO_MODE = !OPENROUTER_KEY;
 
+console.log('API key present:', !!OPENROUTER_KEY);
+console.log('DEMO_MODE:', DEMO_MODE);
+console.log('Server starting with Claude model...');
+
+if (DEMO_MODE) {
+  console.warn('Warning: Running in demo mode - no API key found');
+}
+
 const client = DEMO_MODE ? null : new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: OPENROUTER_KEY,
@@ -297,8 +305,15 @@ export async function POST(request: NextRequest) {
         ? 'required'
         : 'auto';
 
+    if (!client) {
+      return NextResponse.json(
+        { error: 'API key not configured' },
+        { status: 500 }
+      );
+    }
+
     // 1차 호출: 툴 콜 감지 (non-streaming)
-    const firstResponse = await client!.chat.completions.create({
+    const firstResponse = await client.chat.completions.create({
       model: 'google/gemini-2.0-flash-001',
       max_tokens: 2000,
       stream: false,
@@ -313,21 +328,38 @@ export async function POST(request: NextRequest) {
     const choice = firstResponse.choices[0];
     const encoder = new TextEncoder();
 
+    // 디버깅 로그 추가
+    console.log('Tool choice:', toolChoice);
+    console.log('Active tools:', activeTools.map(t => t.function.name));
+    console.log('Choice finish_reason:', choice.finish_reason);
+    console.log('Tool calls present:', !!choice.message.tool_calls);
+    console.log('Tool calls length:', choice.message.tool_calls?.length ?? 0);
+    console.log('Message content preview:', choice.message.content?.substring(0, 200));
+
     // 툴 콜이 발생한 경우 (finish_reason이 모델마다 다를 수 있으므로 tool_calls 존재 여부로 판단)
     if (choice.message.tool_calls?.length) {
+      console.log('Tool call detected!');
       const toolCall = choice.message.tool_calls[0];
+      console.log('Tool call:', JSON.stringify(toolCall, null, 2));
+
       const fn = (toolCall as any).function;
       const args = JSON.parse(fn.arguments);
+      console.log('Tool name:', fn.name);
+      console.log('Tool args:', args);
 
       let toolResult: object;
       if (fn.name === 'calculate_gap_analysis') {
+        console.log('Executing calculate_gap_analysis');
         toolResult = calculateGapAnalysis(args as GapInput);
+        console.log('Gap analysis result:', toolResult);
       } else {
+        console.log('Executing calculate_risk_scores');
         toolResult = calculateRiskScores(args as RiskInput);
+        console.log('Risk scores result:', toolResult);
       }
 
       // 2차 호출: 툴 결과 포함해서 응답
-      const stream = await client!.chat.completions.create({
+      const stream = await client.chat.completions.create({
         model: 'google/gemini-2.0-flash-001',
         max_tokens: 2000,
         stream: true,
@@ -426,7 +458,82 @@ export async function POST(request: NextRequest) {
     }
 
     // 툴 콜 없는 경우: 통합 가드레일 적용 후 반환
-    const guardrailResult2 = applyGuardrails(choice.message.content ?? '', effectiveStage, lastUserMsg?.content);
+    console.log('No tool calls detected - returning direct response');
+    const responseContent = choice.message.content ?? '';
+
+    // OpenRouter 모델이 잘못된 형태로 tool call을 출력하는 경우 감지하고 실제로 실행
+    const pseudoToolMatch = responseContent.match(/print\(default_api\.calculate_(risk_scores|gap_analysis)\(([^)]+)\)\)/);
+    if (pseudoToolMatch) {
+      console.log('Detected pseudo tool call in response:', pseudoToolMatch[0]);
+      console.log('Response content:', responseContent);
+
+      const toolName = pseudoToolMatch[1];
+
+      // 대화에서 필요한 매개변수 추출
+      const allText = messages.map((m: any) => m.content ?? '').join('\n');
+
+      if (toolName === 'risk_scores') {
+        // STAGE 1 정보에서 매개변수 추출
+        const ageMatch = allText.match(/(\d{2,3})\s*(?:세|살)/);
+        const genderMatch = allText.match(/(남성|여성|남자|여자)/);
+        const jobMatch = allText.match(/(사무직|IT_개발|자영업|건설업|영업직|서비스업|제조업|운송업)/);
+        const empMatch = allText.match(/(정규직|비정규직|자영업|프리랜서)/);
+        const incomeMatch = allText.match(/(200만원?\s*미만|200\s*[~\-–]\s*500|500\s*[~\-–]\s*800|800만원?\s*이상)/);
+
+        if (ageMatch && genderMatch) {
+          const input = {
+            age: parseInt(ageMatch[1]),
+            gender: genderMatch[1].includes('남') ? 'male' as const : 'female' as const,
+            job: jobMatch?.[1] || '사무직',
+            employment_type: empMatch?.[1] || '정규직',
+            family_structure: '미혼_무부양', // 기본값
+            monthly_income: incomeMatch?.[1]?.replace(/\s/g, '') || '200~500만원',
+            family_history: [],
+            current_condition: '없음' as const,
+            pension_status: '국민연금만' as const
+          };
+
+          console.log('Executing risk scores with extracted params:', input);
+          const toolResult = calculateRiskScores(input);
+          console.log('Risk scores result:', toolResult);
+
+          // 시각화 포함하여 응답 생성
+          const cleanedContent = responseContent.replace(/print\([^)]+\)/, '').trim();
+          const vizJson = JSON.stringify({
+            type: 'risk_map',
+            data: { 사망: toolResult.사망, 질병: toolResult.질병, 상해: toolResult.상해, 소득중단: toolResult.소득중단, 노후: toolResult.노후 },
+          });
+          const finalContent = `${cleanedContent}\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
+
+          const readable = new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode(finalContent));
+              controller.close();
+            },
+          });
+          return new Response(readable, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+        }
+      }
+
+      // 매개변수 추출 실패시 오류 메시지
+      const errorContent = `죄송합니다. 정보가 부족해서 리스크 계산을 할 수 없습니다.
+
+다음 정보를 모두 제공해 주세요:
+- 나이: 숫자로만 입력 (예: 28세)
+- 성별: "남성" 또는 "여성"
+- 직업
+- 고용형태 (정규직, 비정규직 등)`;
+
+      const readable = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(errorContent));
+          controller.close();
+        },
+      });
+      return new Response(readable, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    }
+
+    const guardrailResult2 = applyGuardrails(responseContent, effectiveStage, lastUserMsg?.content);
     let content = guardrailResult2.text;
     if (!content.trim()) {
       content = '죄송합니다, 응답을 생성하지 못했습니다. 다시 한번 말씀해 주시겠어요?';
