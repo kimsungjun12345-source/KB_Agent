@@ -379,13 +379,50 @@ export async function POST(request: NextRequest) {
       const guardrailResult = applyGuardrails(fullContent, effectiveStage, lastUserMsg?.content);
       fullContent = guardrailResult.text;
 
-      // Fix 4: LLM이 ###VISUALIZATION### 마커를 출력하지 않은 경우 서버에서 직접 주입
+      // 🔥 핵폭탄급 JSON 제거 - 백엔드에서 완전 차단
+      function nuclearJsonRemoval(text: string): string {
+        let result = text;
+
+        // 1. 모든 JSON 객체 완전 제거 (다중 패턴)
+        for (let i = 0; i < 10; i++) {
+          // 모든 시각화 타입 JSON 제거
+          result = result.replace(/\{[^{}]*"type"[^{}]*"(?:risk_map|gap_analysis|product_match|final_report)"[^{}]*\}/g, '');
+
+          // 한국어 필드가 포함된 모든 JSON 제거
+          result = result.replace(/\{[^{}]*"사망"[^{}]*\d+[^{}]*\}/g, '');
+          result = result.replace(/\{[^{}]*"질병"[^{}]*\d+[^{}]*\}/g, '');
+          result = result.replace(/\{[^{}]*"상해"[^{}]*\d+[^{}]*\}/g, '');
+          result = result.replace(/\{[^{}]*"소득중단"[^{}]*\d+[^{}]*\}/g, '');
+          result = result.replace(/\{[^{}]*"노후"[^{}]*\d+[^{}]*\}/g, '');
+
+          // 중첩된 JSON도 제거
+          result = result.replace(/\{[\s\S]*?"type"[\s\S]*?\}/g, '');
+          result = result.replace(/\{[\s\S]*?"data"[\s\S]*?\}/g, '');
+
+          // 줄바꿈과 함께 있는 JSON 제거
+          result = result.replace(/\n\{[^\n]*"type"[^\n]*\}\n?/g, '\n');
+          result = result.replace(/\s\{[^\n]*"type"[^\n]*\}\s?/g, ' ');
+        }
+
+        // 2. 줄별 완전 필터링
+        result = result.split('\n')
+          .filter(line => {
+            const trimmed = line.trim();
+            return !trimmed.startsWith('{"type"') &&
+                   !trimmed.includes('"사망":') &&
+                   !trimmed.includes('"질병":') &&
+                   !trimmed.includes('"product_name"') &&
+                   !trimmed.match(/\{.*"type".*\}/);
+          })
+          .join('\n');
+
+        return result.replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+      fullContent = nuclearJsonRemoval(fullContent);
+
+      // 시각화 마커 주입 로직
       if (!fullContent.includes('###VISUALIZATION###')) {
-        // LLM이 bare JSON으로 출력했을 경우 제거 (한 줄 혹은 중첩 한 단계)
-        fullContent = fullContent.replace(
-          /\n?\{[^\n]*"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[^\n]*\}\n?/g,
-          '\n'
-        ).trim();
 
         if (fn.name === 'calculate_risk_scores') {
           const r = toolResult as any;
