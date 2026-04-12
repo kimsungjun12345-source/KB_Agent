@@ -706,40 +706,76 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                         />
                       )}
 
-                      {/* product_match */}
+                      {/* product_match - 개선된 카드 UI */}
                       {viz.type === 'product_match' && (
-                        <div className="space-y-3">
-                          {(viz.data as { product_name: string; match_score: number; monthly_premium: number; key_benefits: string[] }[]).map((product, i) => (
-                            <div key={i} className="bg-white border border-[#e4e7ed] rounded-lg p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <h5 className="text-sm font-semibold text-[#111827] leading-snug">{product.product_name}</h5>
-                                <span className="text-sm font-bold text-[#1a3d6b] ml-3 flex-shrink-0">
-                                  {product.monthly_premium?.toLocaleString()}원
-                                  <span className="text-[11px] font-normal text-[#9ca3af]">/월</span>
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-[11px] mt-2">
-                                <div className="flex flex-wrap gap-1">
-                                  {product.key_benefits?.[0] && (
-                                    <span className="bg-[#f5f7fa] text-[#6b7280] px-1.5 py-0.5 rounded">{product.key_benefits[0]}</span>
-                                  )}
+                        <div className="space-y-4">
+                          {(viz.data as { product_name: string; match_score: number; monthly_premium: number; key_benefits: string[] }[]).map((product, i) => {
+                            const matchScore = product.match_score || 80;
+                            const scoreColor = matchScore >= 90 ? '#10B981' : matchScore >= 80 ? '#F59E0B' : '#EF4444';
+                            const scoreBg = matchScore >= 90 ? '#ECFDF5' : matchScore >= 80 ? '#FEF3C7' : '#FEE2E2';
+
+                            return (
+                              <div key={i} className="bg-gradient-to-r from-white to-gray-50 border border-[#e4e7ed] rounded-xl p-5 hover:shadow-md transition-shadow duration-200">
+                                {/* 헤더: 상품명과 매치 점수 */}
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1">
+                                    <h5 className="text-base font-bold text-[#111827] leading-snug mb-1">
+                                      {product.product_name}
+                                    </h5>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                                        style={{ backgroundColor: scoreBg, color: scoreColor }}
+                                      >
+                                        매칭도 {matchScore}%
+                                      </span>
+                                      {matchScore >= 90 && (
+                                        <span className="text-xs text-green-600 font-medium">⭐ 최적</span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* 보험료 강조 */}
+                                  <div className="text-right ml-4">
+                                    <div className="text-lg font-bold text-[#1a3d6b]">
+                                      {product.monthly_premium?.toLocaleString()}원
+                                    </div>
+                                    <div className="text-xs text-[#9ca3af] font-medium">/월</div>
+                                  </div>
                                 </div>
-                                <span
-                                  className="px-2 py-0.5 rounded font-bold ml-2 flex-shrink-0 text-[11px]"
-                                  style={{ background: '#FFF9DC', color: '#856A00' }}
-                                >
-                                  {product.match_score}점
-                                </span>
-                              </div>
-                              {product.key_benefits?.[1] && (
-                                <div className="mt-2.5 pt-2.5 border-t border-[#f0f0f0]">
-                                  <div className="text-[10px] font-semibold text-[#9ca3af] uppercase tracking-wide mb-1">이 상품이 선택된 이유</div>
-                                  <div className="text-xs text-[#374151] leading-relaxed">{product.key_benefits[1]}</div>
+
+                                {/* 혜택 리스트 */}
+                                <div className="space-y-2 mt-3">
+                                  {product.key_benefits?.map((benefit, idx) => (
+                                    <div key={idx} className="flex items-start gap-2">
+                                      <div className="w-1.5 h-1.5 bg-[#3b82f6] rounded-full mt-2 flex-shrink-0"></div>
+                                      <span className="text-sm text-[#374151] leading-relaxed">{benefit}</span>
+                                    </div>
+                                  ))}
                                 </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+
+                                {/* 하단 요약 정보 */}
+                                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                                  <div className="text-xs text-[#6b7280]">
+                                    KB라이프 공식 상품
+                                  </div>
+                                  <div className="text-xs text-[#6b7280]">
+                                    월 보험료 기준
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* 다음 단계 버튼 */}
+                          <div className="mt-6 text-center">
+                            <button
+                              onClick={() => handleSendWithMessage('최종 설계안을 확정해주세요')}
+                              className="inline-flex items-center px-6 py-3 bg-[#3b82f6] text-white text-sm font-semibold rounded-lg hover:bg-[#2563eb] transition-colors duration-200 shadow-sm"
+                            >
+                              최종 설계안 확정 →
+                            </button>
+                          </div>
                       )}
 
                       {/* final_report */}

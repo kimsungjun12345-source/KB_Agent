@@ -252,9 +252,28 @@ export function parseResponse(response: string): ParsedResponse {
   cleaned = cleaned.replace(/###VISUALIZATION###/g, '');
   cleaned = cleaned.replace(/###END_VISUALIZATION###/g, '');
 
-  // bare JSON 시각화 객체 제거 (줄바꿈 포함/불포함 모두)
-  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[^}]*\{[^}]*\}[^}]*\}/g, '');
-  cleaned = cleaned.replace(/\n\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}\}/g, '');
+  // bare JSON 시각화 객체 제거 - 훨씬 더 강력한 패턴들
+  // 1. 기본 단일 라인 JSON 객체
+  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[^}]*\}/g, '');
+
+  // 2. 중첩된 JSON 객체 (data 프로퍼티 포함)
+  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?"data"\s*:\s*\{[\s\S]*?\}\s*\}/g, '');
+
+  // 3. 배열 형태의 data를 가진 JSON
+  cleaned = cleaned.replace(/\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?"data"\s*:\s*\[[\s\S]*?\]\s*\}/g, '');
+
+  // 4. 줄바꿈이 있는 모든 JSON 객체들
+  cleaned = cleaned.replace(/\n\s*\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}\s*(?:\n|$)/g, '\n');
+
+  // 5. 문장 중간에 붙어있는 JSON
+  cleaned = cleaned.replace(/([.!?])\s*\{"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '$1');
+
+  // 6. 모든 남은 JSON 객체 흔적 제거
+  cleaned = cleaned.replace(/\{[\s\S]*?"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
+
+  // 7. 마지막 안전장치: 알려진 시각화 타입을 포함한 모든 중괄호 블록
+  const vizTypePattern = /\{[^{}]*(?:"(?:risk_map|gap_analysis|product_match|final_report)"|"사망"\s*:\s*\d+|"질병"\s*:\s*\d+|"product_name")[^{}]*\}/g;
+  cleaned = cleaned.replace(vizTypePattern, '');
 
   // 연속 공백 정리
   cleaned = cleaned.replace(/\s{3,}/g, '\n\n').trim();
