@@ -254,39 +254,52 @@ export function parseResponse(response: string): ParsedResponse {
   cleaned = cleaned.replace(/###VISUALIZATION###/g, '');
   cleaned = cleaned.replace(/###END_VISUALIZATION###/g, '');
 
-  // 🔥 핵폭탄급 JSON 제거 - 무차별 제거
+  // 🔥💀 ULTIMATE DESTROYER JSON 제거 - 완전 무차별 제거
   function bruteForceBareJsonRemoval(text: string): string {
     let result = text;
 
-    // 1. 모든 JSON 패턴을 여러 번 반복 제거
-    for (let i = 0; i < 5; i++) {
-      // 시각화 타입을 포함한 모든 JSON 객체
-      result = result.replace(/\{[^{}]*"type"[^{}]*"(?:risk_map|gap_analysis|product_match|final_report)"[^{}]*\}/g, '');
+    // 1. 10번 반복으로 중첩된 JSON까지 완전 제거
+    for (let i = 0; i < 10; i++) {
+      // 모든 타입의 시각화 JSON 제거
+      result = result.replace(/\{[\s\S]*?"type"[\s\S]*?"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
 
-      // 한국어 필드를 포함한 JSON 객체
-      result = result.replace(/\{[^{}]*"사망"[^{}]*\d+[^{}]*\}/g, '');
-      result = result.replace(/\{[^{}]*"질병"[^{}]*\d+[^{}]*\}/g, '');
-      result = result.replace(/\{[^{}]*"상해"[^{}]*\d+[^{}]*\}/g, '');
-
-      // product_name을 포함한 JSON 객체
-      result = result.replace(/\{[^{}]*"product_name"[^{}]*\}/g, '');
-
-      // 모든 중첩된 JSON 제거 (더 강력하게)
-      result = result.replace(/\{[\s\S]*?"type"[\s\S]*?\}/g, '');
+      // 한국어 리스크 필드가 포함된 JSON 제거
       result = result.replace(/\{[\s\S]*?"사망"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"질병"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"상해"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"소득중단"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"노후"[\s\S]*?\}/g, '');
+
+      // 상품 관련 JSON 제거
+      result = result.replace(/\{[\s\S]*?"product_name"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"name"[\s\S]*?"KB[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"premium"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"total_premium"[\s\S]*?\}/g, '');
+
+      // 모든 data 필드 포함 JSON 제거
       result = result.replace(/\{[\s\S]*?"data"[\s\S]*?\}/g, '');
+      result = result.replace(/\{[\s\S]*?"type"[\s\S]*?\}/g, '');
+
+      // 더 간단한 패턴들도 제거
+      result = result.replace(/\{[^{}]*"type"[^{}]*\}/g, '');
+      result = result.replace(/\{[^{}]*"사망"[^{}]*\}/g, '');
+      result = result.replace(/\{[^{}]*"data"[^{}]*\}/g, '');
     }
 
-    // 2. 줄바꿈이 있는 JSON도 제거
-    result = result.replace(/\n\{[\s\S]*?"type"[\s\S]*?\}\n/g, '\n');
-    result = result.replace(/\s\{[\s\S]*?"type"[\s\S]*?\}\s/g, ' ');
+    // 2. 라인별 완전 제거
+    result = result.split('\n').filter(line => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith('{"type"') &&
+             !trimmed.startsWith('{"data"') &&
+             !trimmed.includes('"type":"') &&
+             !trimmed.includes('"사망":') &&
+             !trimmed.includes('"product_name"') &&
+             !trimmed.includes('"total_premium"') &&
+             !trimmed.match(/^\s*\{.*\}\s*$/);
+    }).join('\n');
 
-    // 3. 마지막 안전장치 - 중괄호로 시작하는 모든 라인 제거
-    result = result.split('\n')
-      .filter(line => !line.trim().startsWith('{"type"'))
-      .filter(line => !line.includes('"사망":'))
-      .filter(line => !line.includes('"product_name"'))
-      .join('\n');
+    // 3. 마지막 대청소
+    result = result.replace(/\{[^}]*\}/g, ''); // 남은 모든 JSON 객체 제거
 
     return result;
   }
