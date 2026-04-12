@@ -289,10 +289,13 @@ export async function POST(request: NextRequest) {
     const hasRiskMap = shownVisualizations.includes('risk_map') || allMsgText.includes('risk_map');
     const hasGapAnalysis = shownVisualizations.includes('gap_analysis') || allMsgText.includes('gap_analysis');
 
-    // Stage 자동 승격: 리스크 분석 결과가 있으면 stage 3으로, 갭 분석 결과가 있으면 stage 4로
+    // Stage 자동 승격 및 다음 단계 툴 강제 호출
+    let shouldForceGapTool = false;
+
     if (effectiveStage === 2 && (hasRiskMap || allMsgText.includes('리스크 분석 결과입니다') || allMsgText.includes('사망:') && allMsgText.includes('점'))) {
       effectiveStage = 3;
-      console.log('Stage 2→3 auto upgrade: Risk analysis detected');
+      shouldForceGapTool = true; // 갭 분석 툴 강제 호출
+      console.log('Stage 2→3 auto upgrade: Risk analysis detected, forcing gap analysis');
     }
     if (effectiveStage === 3 && (hasGapAnalysis || allMsgText.includes('보장 갭') || allMsgText.includes('추가 보장이 필요한'))) {
       effectiveStage = 4;
@@ -303,14 +306,14 @@ export async function POST(request: NextRequest) {
       console.log('Stage 4→5 auto upgrade: Important notice detected');
     }
 
-    // stage별 tool 선택
+    // stage별 tool 선택 (강제 갭 분석 포함)
     const activeTools =
       effectiveStage === 2 && !hasRiskMap ? [RISK_TOOL] :
-      effectiveStage === 3 && !hasGapAnalysis ? [GAP_TOOL] :
+      (effectiveStage === 3 && !hasGapAnalysis) || shouldForceGapTool ? [GAP_TOOL] :
       [RISK_TOOL, GAP_TOOL];
 
     const toolChoice: any =
-      (effectiveStage === 2 && !hasRiskMap) || (effectiveStage === 3 && !hasGapAnalysis)
+      (effectiveStage === 2 && !hasRiskMap) || (effectiveStage === 3 && !hasGapAnalysis) || shouldForceGapTool
         ? 'required'
         : 'auto';
 
