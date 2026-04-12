@@ -515,9 +515,57 @@ export async function POST(request: NextRequest) {
       return new Response(readable, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     }
 
-    // 툴 콜 없는 경우: 통합 가드레일 적용 후 반환
-    console.log('No tool calls detected - returning direct response');
+    // 툴 콜 없는 경우: 강제 툴 실행 체크
+    console.log('No tool calls detected - checking for forced tool execution');
     const responseContent = choice.message.content ?? '';
+
+    // 🔥 강제 툴 실행: 리스크 분석 결과가 있는데 갭 분석이 없으면 강제 실행
+    const hasRiskResults = responseContent.includes('사망:') && responseContent.includes('점') && responseContent.includes('질병:');
+    if (hasRiskResults && !hasGapAnalysis && (forceGapTool || effectiveStage === 3)) {
+      console.log('🚀 FORCING GAP ANALYSIS EXECUTION');
+
+      // 리스크 점수 추출
+      const riskScores = {};
+      const riskMatches = responseContent.match(/(\w+):\s*(\d+)점/g) || [];
+      for (const match of riskMatches) {
+        const [, category, score] = match.match(/(\w+):\s*(\d+)점/) || [];
+        if (category && score) {
+          riskScores[category] = parseInt(score);
+        }
+      }
+
+      if (Object.keys(riskScores).length > 0) {
+        const gapInput = {
+          risk_scores: riskScores,
+          existing_insurances: allMsgText.includes('실손') ? [{ type: '실손', coverage_amount: '1억미만' }] : []
+        };
+
+        console.log('Executing forced gap analysis with:', gapInput);
+        const { calculateGapAnalysis } = await import('@/lib/gapCalculator');
+        const gapResult = calculateGapAnalysis(gapInput);
+
+        const gapJson = JSON.stringify({
+          type: 'gap_analysis',
+          data: Object.entries(gapResult).map(([category, data]: [string, any]) => ({
+            category,
+            current_coverage: data.covered || 0,
+            recommended_coverage: Math.round(data.risk * 400),
+            gap: Math.max(0, Math.round(data.risk * 400) - (data.covered || 0)),
+            over_coverage: 0
+          }))
+        });
+
+        const finalContent = `${responseContent}\n\n###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`;
+
+        const readable = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(finalContent));
+            controller.close();
+          },
+        });
+        return new Response(readable, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+    }
 
     // OpenRouter 모델이 잘못된 형태로 tool call을 출력하는 경우 감지하고 실제로 실행
     const pseudoToolMatch = responseContent.match(/(?:print\(default_api\.calculate_|tool_code.*calculate_)(risk_scores|gap_analysis)/);
