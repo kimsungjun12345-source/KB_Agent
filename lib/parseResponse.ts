@@ -158,17 +158,18 @@ export function parseResponse(response: string): ParsedResponse {
   const stageMatch = normalized.match(/###STAGE:(\d)###/);
   const markerStage = stageMatch ? parseInt(stageMatch[1]) : undefined;
 
-  // STAGE 마커를 더 강력하게 제거
+  // STAGE 마커를 더 정확하게 제거 (단어 경계 고려)
   let cleaned = normalized
     .replace(/###STAGE:\d###\s*/g, '')
     .replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}\s*/g, '')
-    .replace(/STAGE\s*:\s*\d+/g, '')
+    .replace(/(?:^|\s)STAGE\s*:\s*\d+(?:\s|$)/g, ' ')
     .replace(/\*\*\*STAGE:\d\*\*\*/g, '')
     .replace(/\*STAGE:\d\*/g, '')
-    .replace(/STAGE:\d/g, '')
+    .replace(/(?:^|\s)STAGE:\d(?:\s|$)/g, ' ')
     .replace(/###\d###/g, '')
     .replace(/##\d##/g, '')
     .replace(/#\d#/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   // 잔여 마커 파편 제거

@@ -576,17 +576,17 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
               >
                 {/* Text content — ReactMarkdown for assistant, plain for user */}
                 {message.isUser ? (
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  <p className="whitespace-pre-wrap text-base">{message.content}</p>
                 ) : (
-                  <div className="prose prose-sm max-w-none
-                    prose-p:my-1 prose-p:leading-relaxed
-                    prose-ul:my-1.5 prose-ul:pl-4
-                    prose-ol:my-1.5 prose-ol:pl-4
+                  <div className="prose prose-base max-w-none
+                    prose-p:my-1.5 prose-p:leading-relaxed
+                    prose-ul:my-2 prose-ul:pl-4
+                    prose-ol:my-2 prose-ol:pl-4
                     prose-li:my-0.5
                     prose-strong:font-semibold prose-strong:text-[#111827]
                     prose-headings:font-semibold prose-headings:text-[#111827]
-                    prose-h3:text-sm prose-h4:text-sm
-                    prose-code:text-xs prose-code:bg-[#f4f4f4] prose-code:px-1 prose-code:rounded
+                    prose-h3:text-base prose-h4:text-base
+                    prose-code:text-sm prose-code:bg-[#f4f4f4] prose-code:px-1 prose-code:rounded
                     [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                     <ReactMarkdown>{message.content
                       .replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}/g, '')
@@ -610,7 +610,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                         <div className="space-y-3">
                           {/* 나이 입력 */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">나이</label>
+                            <label className="block text-base font-medium text-gray-700 mb-1">나이</label>
                             <input
                               type="number"
                               min="20"
@@ -618,17 +618,17 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                               placeholder="예: 30"
                               value={formData.age}
                               onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#F5C400] focus:border-[#F5C400] text-sm"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#F5C400] focus:border-[#F5C400] text-base"
                             />
                           </div>
 
                           {/* 성별 선택 */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">성별</label>
+                            <label className="block text-base font-medium text-gray-700 mb-2">성별</label>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => setFormData(prev => ({ ...prev, gender: '남성' }))}
-                                className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                                className={`px-4 py-2 text-base rounded-md transition-colors ${
                                   formData.gender === '남성'
                                     ? 'bg-[#F5C400] text-black font-semibold'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -638,7 +638,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                               </button>
                               <button
                                 onClick={() => setFormData(prev => ({ ...prev, gender: '여성' }))}
-                                className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                                className={`px-4 py-2 text-base rounded-md transition-colors ${
                                   formData.gender === '여성'
                                     ? 'bg-[#F5C400] text-black font-semibold'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -666,35 +666,6 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                       </div>
                     )}
 
-                    {/* 결혼 여부, 자녀 관련 질문 */}
-                    {(message.content.includes('결혼') || message.content.includes('자녀') || message.content.includes('가족')) && (
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => handleSendWithMessage("미혼")}
-                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
-                        >
-                          미혼
-                        </button>
-                        <button
-                          onClick={() => handleSendWithMessage("기혼, 자녀 없음")}
-                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
-                        >
-                          기혼, 자녀 없음
-                        </button>
-                        <button
-                          onClick={() => handleSendWithMessage("기혼, 자녀 1명")}
-                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
-                        >
-                          기혼, 자녀 1명
-                        </button>
-                        <button
-                          onClick={() => handleSendWithMessage("기혼, 자녀 2명")}
-                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
-                        >
-                          기혼, 자녀 2명
-                        </button>
-                      </div>
-                    )}
 
                     {/* 건강 상태 질문 */}
                     {(message.content.includes('건강') || message.content.includes('질환')) && !message.content.includes('가족력') && (
@@ -899,7 +870,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
               onChange={(e) => setCurrentMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="답변을 입력하세요 (Enter 전송 / Shift+Enter 줄바꿈)"
-              className="flex-1 border-none outline-none resize-none text-sm text-[#111827] placeholder:text-[#9ca3af] leading-relaxed bg-transparent py-1"
+              className="flex-1 border-none outline-none resize-none text-base text-[#111827] placeholder:text-[#9ca3af] leading-relaxed bg-transparent py-1"
               rows={2}
               disabled={isLoading}
             />
