@@ -421,59 +421,11 @@ export async function POST(request: NextRequest) {
 
       fullContent = nuclearJsonRemoval(fullContent);
 
-      // 시각화 마커 주입 로직
-      if (!fullContent.includes('###VISUALIZATION###')) {
+      // 💀 모든 시각화 마커 주입 완전 차단
+      console.log('모든 JSON 주입이 차단됨');
 
-        if (fn.name === 'calculate_risk_scores') {
-          const r = toolResult as any;
-          const vizJson = JSON.stringify({
-            type: 'risk_map',
-            data: { 사망: r.사망, 질병: r.질병, 상해: r.상해, 소득중단: r.소득중단, 노후: r.노후 },
-          });
-          fullContent += `\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
-        } else if (fn.name === 'calculate_gap_analysis') {
-          const g = toolResult as any;
-          const vizJson = JSON.stringify({
-            type: 'gap_analysis',
-            data: {
-              사망:     { risk: g.사망?.risk     ?? 0, covered: g.사망?.covered     ?? 0 },
-              질병:     { risk: g.질병?.risk     ?? 0, covered: g.질병?.covered     ?? 0 },
-              상해:     { risk: g.상해?.risk     ?? 0, covered: g.상해?.covered     ?? 0 },
-              소득중단: { risk: g.소득중단?.risk ?? 0, covered: g.소득중단?.covered ?? 0 },
-              노후:     { risk: g.노후?.risk     ?? 0, covered: g.노후?.covered     ?? 0 },
-            },
-          });
-          fullContent += `\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
-        }
-      }
-
-      // 리스크 맵 시각화 자동 주입 (리스크 분석 결과 키워드 감지시)
-      if ((fullContent.includes('리스크 분석 결과') || fullContent.includes('점수가 높은 영역')) &&
-          !fullContent.includes('"type": "risk_map"')) {
-
-        // 텍스트에서 리스크 점수 추출
-        const riskScores = {
-          사망: 0, 질병: 0, 상해: 0, 소득중단: 0, 노후: 0
-        };
-
-        const deathMatch = fullContent.match(/사망:\s*(\d+)점?/);
-        const diseaseMatch = fullContent.match(/질병:\s*(\d+)점?/);
-        const injuryMatch = fullContent.match(/상해:\s*(\d+)점?/);
-        const incomeMatch = fullContent.match(/소득중단:\s*(\d+)점?/);
-        const oldAgeMatch = fullContent.match(/노후:\s*(\d+)점?/);
-
-        if (deathMatch) riskScores.사망 = parseInt(deathMatch[1]);
-        if (diseaseMatch) riskScores.질병 = parseInt(diseaseMatch[1]);
-        if (injuryMatch) riskScores.상해 = parseInt(injuryMatch[1]);
-        if (incomeMatch) riskScores.소득중단 = parseInt(incomeMatch[1]);
-        if (oldAgeMatch) riskScores.노후 = parseInt(oldAgeMatch[1]);
-
-        const riskJson = JSON.stringify({
-          type: 'risk_map',
-          data: riskScores
-        });
-        fullContent += `\n\n###VISUALIZATION###\n${riskJson}\n###END_VISUALIZATION###`;
-      }
+      // 💀 리스크 맵 자동 주입 완전 차단
+      console.log('리스크 맵 자동 주입 차단됨');
 
       // 갭 분석 시각화 자동 주입 (갭 분석 결과 키워드 감지시)
       if ((fullContent.includes('갭 분석 결과') || fullContent.includes('보장 갭')) &&
@@ -711,13 +663,9 @@ export async function POST(request: NextRequest) {
           const toolResult = calculateRiskScores(input);
           console.log('Risk scores result:', toolResult);
 
-          // 시각화 포함하여 응답 생성
+          // 💀 JSON 주입 완전 차단 - 시각화 없이 텍스트만
           const cleanedContent = responseContent.replace(/print\([^)]+\)/, '').trim();
-          const vizJson = JSON.stringify({
-            type: 'risk_map',
-            data: { 사망: toolResult.사망, 질병: toolResult.질병, 상해: toolResult.상해, 소득중단: toolResult.소득중단, 노후: toolResult.노후 },
-          });
-          const finalContent = `${cleanedContent}\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
+          const finalContent = cleanedContent; // JSON 주입 완전 차단
 
           const readable = new ReadableStream({
             start(controller) {
@@ -749,6 +697,19 @@ export async function POST(request: NextRequest) {
 
     const guardrailResult2 = applyGuardrails(responseContent, effectiveStage, lastUserMsg?.content);
     let content = guardrailResult2.text;
+
+    // 💀🔥 FINAL NUCLEAR JSON REMOVAL - 모든 JSON 패턴 완전 제거
+    content = content.replace(/\{[\s\S]*?"type"[\s\S]*?"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
+    content = content.replace(/\{[^{}]*"사망"[^{}]*\d+[^{}]*\}/g, '');
+    content = content.replace(/\{[^{}]*"질병"[^{}]*\d+[^{}]*\}/g, '');
+    content = content.replace(/\{[^{}]*"상해"[^{}]*\d+[^{}]*\}/g, '');
+    content = content.replace(/\{[^{}]*"소득중단"[^{}]*\d+[^{}]*\}/g, '');
+    content = content.replace(/\{[^{}]*"노후"[^{}]*\d+[^{}]*\}/g, '');
+    content = content.replace(/\{[^{}]*"product_name"[^{}]*\}/g, '');
+    content = content.replace(/\{.*?"type".*?\}/g, '');
+    content = content.split('\n').filter(line => !line.trim().match(/^\s*\{.*"type".*\}\s*$/)).join('\n');
+    content = content.replace(/\s{3,}/g, '\n\n').trim();
+
     if (!content.trim()) {
       content = '죄송합니다, 응답을 생성하지 못했습니다. 다시 한번 말씀해 주시겠어요?';
     }
