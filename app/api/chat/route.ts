@@ -289,12 +289,21 @@ export async function POST(request: NextRequest) {
     const hasRiskMap = shownVisualizations.includes('risk_map') || allMsgText.includes('risk_map');
     const hasGapAnalysis = shownVisualizations.includes('gap_analysis') || allMsgText.includes('gap_analysis');
 
-    // Stage 자동 승격: risk_map이 이미 있는데 stage=2이면 → 3으로 올림
-    if (effectiveStage === 2 && hasRiskMap && !hasGapAnalysis) {
+    // Stage 자동 승격: 리스크 분석 결과가 있으면 stage 3으로, 갭 분석 결과가 있으면 stage 4로
+    if (effectiveStage === 2 && (hasRiskMap || allMsgText.includes('리스크 분석 결과입니다') || allMsgText.includes('사망:') && allMsgText.includes('점'))) {
       effectiveStage = 3;
+      console.log('Stage 2→3 auto upgrade: Risk analysis detected');
+    }
+    if (effectiveStage === 3 && (hasGapAnalysis || allMsgText.includes('보장 갭') || allMsgText.includes('추가 보장이 필요한'))) {
+      effectiveStage = 4;
+      console.log('Stage 3→4 auto upgrade: Gap analysis detected');
+    }
+    if (effectiveStage === 4 && allMsgText.includes('고지의무')) {
+      effectiveStage = 5;
+      console.log('Stage 4→5 auto upgrade: Important notice detected');
     }
 
-    // stage 2: RISK_TOOL만, stage 3: GAP_TOOL만, 나머지: 둘 다 auto
+    // stage별 tool 선택
     const activeTools =
       effectiveStage === 2 && !hasRiskMap ? [RISK_TOOL] :
       effectiveStage === 3 && !hasGapAnalysis ? [GAP_TOOL] :
@@ -304,6 +313,8 @@ export async function POST(request: NextRequest) {
       (effectiveStage === 2 && !hasRiskMap) || (effectiveStage === 3 && !hasGapAnalysis)
         ? 'required'
         : 'auto';
+
+    console.log(`Stage: ${effectiveStage}, Tools: ${activeTools.map(t => t.function.name)}, Choice: ${toolChoice}`);
 
     if (!client) {
       return NextResponse.json(
