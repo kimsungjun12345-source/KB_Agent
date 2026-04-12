@@ -181,15 +181,21 @@ export function calculateRiskScores(input: RiskInput): RiskScores {
     '암': '암', '심혈관': '심혈관질환', '심장': '심혈관질환',
     '뇌혈관': '뇌혈관질환', '당뇨': '당뇨병', '고혈압': '심혈관질환',
   };
-  let FM = 1.0;
-  let fmLabel = '가족력 없음';
+  // 질병별 부모 매칭 횟수를 센 뒤, 2명 이상이면 '부모_2명' 배수 적용
+  const diseaseParentCount: Record<string, number> = {};
   for (const history of input.family_history) {
     for (const [keyword, diseaseKey] of Object.entries(familyKeywordMap)) {
       if (history.includes(keyword)) {
-        const mult = stats.family_risk_factors.data[diseaseKey]?.['부모_1명'] ?? 1.0;
-        if (mult > FM) { FM = mult; fmLabel = `${diseaseKey} ×${mult}`; }
+        diseaseParentCount[diseaseKey] = (diseaseParentCount[diseaseKey] ?? 0) + 1;
       }
     }
+  }
+  let FM = 1.0;
+  let fmLabel = '가족력 없음';
+  for (const [diseaseKey, count] of Object.entries(diseaseParentCount)) {
+    const tier = count >= 2 ? '부모_2명' : '부모_1명';
+    const mult = stats.family_risk_factors.data[diseaseKey]?.[tier] ?? 1.0;
+    if (mult > FM) { FM = mult; fmLabel = `${diseaseKey}(${tier}) ×${mult}`; }
   }
 
   const CD_MAP: Record<string, number> = { '없음': 0, '경증': 1, '중증': 2, '암_이력': 3 };
