@@ -582,7 +582,16 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                     prose-h3:text-sm prose-h4:text-sm
                     prose-code:text-xs prose-code:bg-[#f4f4f4] prose-code:px-1 prose-code:rounded
                     [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown>{message.content.replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}/g, '')}</ReactMarkdown>
+                    <ReactMarkdown>{message.content
+                      .replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}/g, '')
+                      .replace(/###STAGE:\d###/g, '')
+                      .replace(/\*\*\*STAGE:\d\*\*\*/g, '')
+                      .replace(/\*STAGE:\d\*/g, '')
+                      .replace(/STAGE:\d/g, '')
+                      .replace(/###\d###/g, '')
+                      .replace(/##\d##/g, '')
+                      .replace(/#\d#/g, '')
+                    }</ReactMarkdown>
                   </div>
                 )}
 

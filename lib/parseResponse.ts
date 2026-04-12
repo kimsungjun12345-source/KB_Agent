@@ -163,6 +163,12 @@ export function parseResponse(response: string): ParsedResponse {
     .replace(/###STAGE:\d###\s*/g, '')
     .replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}\s*/g, '')
     .replace(/STAGE\s*:\s*\d+/g, '')
+    .replace(/\*\*\*STAGE:\d\*\*\*/g, '')
+    .replace(/\*STAGE:\d\*/g, '')
+    .replace(/STAGE:\d/g, '')
+    .replace(/###\d###/g, '')
+    .replace(/##\d##/g, '')
+    .replace(/#\d#/g, '')
     .trim();
 
   // 잔여 마커 파편 제거
