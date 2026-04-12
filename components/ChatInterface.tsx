@@ -686,59 +686,6 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                     )}
 
 
-                    {/* 건강 상태 질문 */}
-                    {(message.content.includes('건강') || message.content.includes('질환')) && !message.content.includes('가족력') && (
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => !isLoading && handleSendWithMessage("특별한 질환 없음")}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          특별한 질환 없음
-                        </button>
-                        <button
-                          onClick={() => !isLoading && handleSendWithMessage("고혈압")}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          고혈압
-                        </button>
-                        <button
-                          onClick={() => !isLoading && handleSendWithMessage("당뇨")}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          당뇨
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 가족력 질문 */}
-                    {message.content.includes('가족력') && (
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => !isLoading && handleSendWithMessage("가족력 없음")}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          가족력 없음
-                        </button>
-                        <button
-                          onClick={() => !isLoading && handleSendWithMessage("암 가족력")}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          암 가족력
-                        </button>
-                        <button
-                          onClick={() => !isLoading && handleSendWithMessage("심혈관 가족력")}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          심혈관 가족력
-                        </button>
-                      </div>
-                    )}
                   </div>
                 )}
 
