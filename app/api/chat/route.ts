@@ -462,12 +462,12 @@ export async function POST(request: NextRequest) {
     const responseContent = choice.message.content ?? '';
 
     // OpenRouter 모델이 잘못된 형태로 tool call을 출력하는 경우 감지하고 실제로 실행
-    const pseudoToolMatch = responseContent.match(/print\(default_api\.calculate_(risk_scores|gap_analysis)\(([^)]+)\)\)|tool_code.*calculate_(risk_scores|gap_analysis)/);
+    const pseudoToolMatch = responseContent.match(/(?:print\(default_api\.calculate_|tool_code.*calculate_)(risk_scores|gap_analysis)/);
     if (pseudoToolMatch) {
       console.log('Detected pseudo tool call in response:', pseudoToolMatch[0]);
       console.log('Response content:', responseContent);
 
-      const toolName = pseudoToolMatch[1] || pseudoToolMatch[3]; // 두 패턴 중 하나에서 추출
+      const toolName = pseudoToolMatch[1]; // 툴 이름 추출
 
       // 대화에서 필요한 매개변수 추출
       const allText = messages.map((m: any) => m.content ?? '').join('\n');
@@ -476,23 +476,48 @@ export async function POST(request: NextRequest) {
         // 의사 툴 호출에서 직접 매개변수 추출 또는 이전 메시지에서 리스크 점수 추출
         let riskData = {};
 
-        // 1. 의사 툴 호출에서 직접 추출
-        const paramMatch = responseContent.match(/risk_score_death\s*=\s*(\d+).*?risk_score_disease\s*=\s*(\d+).*?risk_score_injury\s*=\s*(\d+).*?risk_score_income_disruption\s*=\s*(\d+).*?risk_score_old_age\s*=\s*(\d+)/s);
-        if (paramMatch) {
-          riskData = {
-            사망: parseInt(paramMatch[1]),
-            질병: parseInt(paramMatch[2]),
-            상해: parseInt(paramMatch[3]),
-            소득중단: parseInt(paramMatch[4]),
-            노후: parseInt(paramMatch[5])
-          };
-          console.log('Extracted risk scores from pseudo tool call:', riskData);
-        } else {
-          // 2. 이전 메시지에서 리스크 점수 추출 (폴백)
+        // 1. 새로운 JSON 포맷에서 risk_scores 추출
+        const jsonMatch = responseContent.match(/risk_scores\s*=\s*(\{[^}]+\})/);
+        if (jsonMatch) {
+          try {
+            // JSON 문자열을 파싱 (키에 따옴표가 없어도 처리)
+            const jsonStr = jsonMatch[1].replace(/(\w+):/g, '"$1":').replace(/'/g, '"');
+            const parsed = JSON.parse(jsonStr);
+            riskData = {
+              사망: parsed["사망"] || parsed.death || 0,
+              질병: parsed["질병"] || parsed.disease || 0,
+              상해: parsed["상해"] || parsed.injury || 0,
+              소득중단: parsed["소득중단"] || parsed.income_disruption || 0,
+              노후: parsed["노후"] || parsed.old_age || 0
+            };
+            console.log('Extracted risk scores from JSON format:', riskData);
+          } catch (e) {
+            console.log('JSON parsing failed, trying individual extraction');
+          }
+        }
+
+        // 2. 개별 매개변수 추출 (폴백)
+        if (Object.keys(riskData).length === 0) {
+          const paramMatch = responseContent.match(/risk_score_death\s*=\s*(\d+).*?risk_score_disease\s*=\s*(\d+).*?risk_score_injury\s*=\s*(\d+).*?risk_score_income_disruption\s*=\s*(\d+).*?risk_score_old_age\s*=\s*(\d+)/s);
+          if (paramMatch) {
+            riskData = {
+              사망: parseInt(paramMatch[1]),
+              질병: parseInt(paramMatch[2]),
+              상해: parseInt(paramMatch[3]),
+              소득중단: parseInt(paramMatch[4]),
+              노후: parseInt(paramMatch[5])
+            };
+            console.log('Extracted risk scores from individual params:', riskData);
+          }
+        }
+
+        // 3. 이전 메시지에서 리스크 점수 추출 (최종 폴백)
+        if (Object.keys(riskData).length === 0) {
           const riskScoreMatch = allText.match(/risk_scores[^}]+\{[^}]+\}/);
           if (riskScoreMatch) {
             try {
               riskData = JSON.parse(riskScoreMatch[0].replace('risk_scores', '').replace(/[^{]*/, ''));
+              console.log('Extracted risk scores from previous messages:', riskData);
             } catch (e) {
               console.log('Failed to parse risk scores from previous messages');
             }
@@ -512,7 +537,7 @@ export async function POST(request: NextRequest) {
             const toolResult = calculateGapAnalysis(gapInput);
             console.log('Gap analysis result:', toolResult);
 
-            const cleanedContent = responseContent.replace(/print\([^)]+\)|tool_code.*?calculate_gap_analysis[^}]*\}\)/s, '').trim();
+            const cleanedContent = responseContent.replace(/(?:print\([^)]+\)|tool_code.*?calculate_gap_analysis[^)]*\))/s, '').trim();
             const vizJson = JSON.stringify({
               type: 'gap_analysis',
               data: {
