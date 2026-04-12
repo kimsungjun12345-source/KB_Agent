@@ -347,6 +347,37 @@ export async function POST(request: NextRequest) {
       const guardrailResult = applyGuardrails(fullContent, effectiveStage, lastUserMsg?.content);
       fullContent = guardrailResult.text;
 
+      // Fix 4: LLM이 ###VISUALIZATION### 마커를 출력하지 않은 경우 서버에서 직접 주입
+      if (!fullContent.includes('###VISUALIZATION###')) {
+        // LLM이 bare JSON으로 출력했을 경우 제거 (한 줄 혹은 중첩 한 단계)
+        fullContent = fullContent.replace(
+          /\n?\{[^\n]*"type"\s*:\s*"(?:risk_map|gap_analysis|product_match|final_report)"[^\n]*\}\n?/g,
+          '\n'
+        ).trim();
+
+        if (fn.name === 'calculate_risk_scores') {
+          const r = toolResult as any;
+          const vizJson = JSON.stringify({
+            type: 'risk_map',
+            data: { 사망: r.사망, 질병: r.질병, 상해: r.상해, 소득중단: r.소득중단, 노후: r.노후 },
+          });
+          fullContent += `\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
+        } else if (fn.name === 'calculate_gap_analysis') {
+          const g = toolResult as any;
+          const vizJson = JSON.stringify({
+            type: 'gap_analysis',
+            data: {
+              사망:     { risk: g.사망?.risk     ?? 0, covered: g.사망?.covered     ?? 0 },
+              질병:     { risk: g.질병?.risk     ?? 0, covered: g.질병?.covered     ?? 0 },
+              상해:     { risk: g.상해?.risk     ?? 0, covered: g.상해?.covered     ?? 0 },
+              소득중단: { risk: g.소득중단?.risk ?? 0, covered: g.소득중단?.covered ?? 0 },
+              노후:     { risk: g.노후?.risk     ?? 0, covered: g.노후?.covered     ?? 0 },
+            },
+          });
+          fullContent += `\n\n###VISUALIZATION###\n${vizJson}\n###END_VISUALIZATION###`;
+        }
+      }
+
       const readable = new ReadableStream({
         start(controller) {
           controller.enqueue(encoder.encode(fullContent));
