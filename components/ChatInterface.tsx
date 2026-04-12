@@ -605,7 +605,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                 {!message.isUser && !isLoading && currentStage === 1 && (
                   <div className="mt-4">
                     {/* 나이와 성별 혼합형 폼 */}
-                    {message.content.includes('나이와 성별') && (
+                    {(message.content.includes('나이와 성별') || (message.content.includes('먼저 나이') && message.content.includes('성별'))) && !message.content.includes('직업') && !message.content.includes('고용') && (
                       <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
                         <div className="space-y-3">
                           {/* 나이 입력 */}
