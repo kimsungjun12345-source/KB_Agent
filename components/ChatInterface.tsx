@@ -602,16 +602,28 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                     {message.content.includes('나이와 성별') && (
                       <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => handleSendWithMessage("남성")}
+                          onClick={() => handleSendWithMessage("30세 남성입니다")}
                           className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                         >
-                          남성
+                          30세 남성
                         </button>
                         <button
-                          onClick={() => handleSendWithMessage("여성")}
+                          onClick={() => handleSendWithMessage("30세 여성입니다")}
                           className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                         >
-                          여성
+                          30세 여성
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("40세 남성입니다")}
+                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          40세 남성
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("40세 여성입니다")}
+                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          40세 여성
                         </button>
                       </div>
                     )}
