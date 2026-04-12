@@ -74,19 +74,60 @@ function extractCodeBlockVisualization(text: string): { jsonStr: string; remaind
   return null;
 }
 
+// 통계 데이터에서 업계 평균 가져오기
+function getIndustryAverages(): Record<string, number> {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const statisticsPath = path.join(process.cwd(), 'data', 'statistics.json');
+    const statistics = JSON.parse(fs.readFileSync(statisticsPath, 'utf-8'));
+    return statistics.industry_risk_averages?.data || { 사망: 4.2, 질병: 5.1, 상해: 3.4, 소득중단: 4.7, 노후: 6.8 };
+  } catch {
+    // 파일 읽기 실패시 기본값 반환
+    return { 사망: 4.2, 질병: 5.1, 상해: 3.4, 소득중단: 4.7, 노후: 6.8 };
+  }
+}
+
 function transformData(type: VizType, rawData: any): any {
   if (type === 'risk_map') {
-    const industryAvg: Record<string, number> = { 사망: 40, 질병: 50, 상해: 30, 소득중단: 45, 노후: 55 };
+    const industryAvg = getIndustryAverages();
     return Object.entries(rawData).map(([category, score]) => ({
       category,
-      risk_level: (score as number) * 10,
-      industry_avg: industryAvg[category] ?? 40,
+      risk_level: score as number,
+      industry_avg: industryAvg[category] ?? 4.2,
     }));
   }
   if (type === 'gap_analysis') {
     return Object.entries(rawData).map(([category, val]: [string, any]) => {
-      const recommended = val.risk * 1000;
-      const current = val.covered * 1000;
+      // 실제 보험 필요 보장액 계산 로직
+      let recommended = 0;
+      let current = val.covered || 0;
+
+      switch(category) {
+        case '사망':
+          // 사망보험: 연소득 × 10년분 기준
+          recommended = Math.round(val.risk * 500); // 리스크 점수당 500만원
+          break;
+        case '질병':
+          // 질병보험: 치료비 + 소득손실 고려
+          recommended = Math.round(val.risk * 200); // 리스크 점수당 200만원
+          break;
+        case '상해':
+          // 상해보험: 일시적 치료비 기준
+          recommended = Math.round(val.risk * 100); // 리스크 점수당 100만원
+          break;
+        case '소득중단':
+          // 소득중단: 월소득 × 12개월 × 지속년수
+          recommended = Math.round(val.risk * 300); // 리스크 점수당 300만원
+          break;
+        case '노후':
+          // 노후자금: 월 생활비 × 12개월 × 예상생존년수
+          recommended = Math.round(val.risk * 1000); // 리스크 점수당 1000만원
+          break;
+        default:
+          recommended = Math.round(val.risk * 400); // 기본값
+      }
+
       return {
         category,
         current_coverage: current,
@@ -116,7 +157,13 @@ export function parseResponse(response: string): ParsedResponse {
 
   const stageMatch = normalized.match(/###STAGE:(\d)###/);
   const markerStage = stageMatch ? parseInt(stageMatch[1]) : undefined;
-  let cleaned = normalized.replace(/###STAGE:\d###\s*/g, '').trim();
+
+  // STAGE 마커를 더 강력하게 제거
+  let cleaned = normalized
+    .replace(/###STAGE:\d###\s*/g, '')
+    .replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}\s*/g, '')
+    .replace(/STAGE\s*:\s*\d+/g, '')
+    .trim();
 
   // 잔여 마커 파편 제거
   cleaned = cleaned.replace(/#+\s*END_VISUALIZATION\s*#+/g, '');

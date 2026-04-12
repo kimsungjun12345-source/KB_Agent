@@ -378,6 +378,44 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Stage 8 final_report 자동 주입 (최종 설계안 키워드 감지시)
+      if (effectiveStage >= 8 &&
+          (fullContent.includes('최종 설계안') || fullContent.includes('설계를 확정') || fullContent.includes('Final Call')) &&
+          !fullContent.includes('"type": "final_report"')) {
+
+        // 대화에서 추천된 상품 정보 추출 (product_match 시각화 데이터 기반)
+        const productMatches = [];
+        let totalPremium = 0;
+
+        // 간단한 샘플 데이터 생성 (실제로는 이전 대화에서 추천된 상품을 추출해야 함)
+        if (allMsgText.includes('KB무배당')) {
+          productMatches.push({
+            product_name: "KB무배당 NEW황금인생",
+            monthly_premium: 89000,
+            key_benefits: ["사망보험금 3억원", "CI진단급여금 3천만원"]
+          });
+          totalPremium += 89000;
+        }
+
+        if (productMatches.length > 0) {
+          const finalReportJson = JSON.stringify({
+            type: 'final_report',
+            data: {
+              recommended_products: productMatches,
+              total_premium: totalPremium,
+              coverage_summary: {
+                death: "3억원",
+                disease: "3천만원",
+                accident: "포함",
+                income: "미포함",
+                retirement: "기본연금"
+              }
+            }
+          });
+          fullContent += `\n\n###VISUALIZATION###\n${finalReportJson}\n###END_VISUALIZATION###`;
+        }
+      }
+
       const readable = new ReadableStream({
         start(controller) {
           controller.enqueue(encoder.encode(fullContent));

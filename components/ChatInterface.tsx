@@ -26,8 +26,8 @@ interface ChatInterfaceProps {
 function RiskRadar({ data }: { data: { category: string; risk_level: number; industry_avg: number }[] }) {
   const radarData = data.map(d => ({
     subject: d.category,
-    score: Math.round(d.risk_level / 10),
-    avg: Math.round(d.industry_avg / 10),
+    score: d.risk_level,
+    avg: d.industry_avg,
   }));
 
   return (
@@ -66,7 +66,7 @@ function RiskRadar({ data }: { data: { category: string; risk_level: number; ind
       {/* 점수 범례 */}
       <div className="mt-2 space-y-2">
         {data.map(item => {
-          const s = Math.round(item.risk_level / 10);
+          const s = Math.round(item.risk_level);
           const isHigh = s >= 7;
           const isMid  = s >= 4 && s < 7;
           return (
@@ -104,6 +104,24 @@ function RiskRadar({ data }: { data: { category: string; risk_level: number; ind
             </div>
           );
         })}
+      </div>
+
+      {/* 다음 단계 버튼 */}
+      <div className="mt-4 pt-3 border-t border-[#e4e7ed]">
+        <button
+          onClick={() => {
+            // 자동으로 보장 갭 분석을 요청하는 메시지 전송
+            const event = new CustomEvent('sendNextStageMessage', {
+              detail: { message: '이제 현재 보장 상태를 점검하고 보장 갭을 분석해주세요.' }
+            });
+            window.dispatchEvent(event);
+          }}
+          className="w-full py-2.5 px-4 bg-[#F5C400] hover:bg-[#E6B500] text-[#1A1A1A] text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+        >
+          <span>📊</span>
+          <span>보장 갭 분석하기</span>
+          <span>→</span>
+        </button>
       </div>
     </div>
   );
@@ -187,6 +205,23 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
           </span>
         </div>
       )}
+
+      {/* 다음 단계 버튼 */}
+      <div className="mt-4 pt-3 border-t border-[#e4e7ed]">
+        <button
+          onClick={() => {
+            const event = new CustomEvent('sendNextStageMessage', {
+              detail: { message: '맞춤형 상품을 추천해주세요. 제가 필요한 보장에 가장 적합한 상품을 찾아주세요.' }
+            });
+            window.dispatchEvent(event);
+          }}
+          className="w-full py-2.5 px-4 bg-[#1a3d6b] hover:bg-[#164059] text-white text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+        >
+          <span>🎯</span>
+          <span>맞춤 상품 추천받기</span>
+          <span>→</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -209,7 +244,7 @@ function CompletionCard({ messages, userName }: { messages: Message[]; userName:
     if (riskData) {
       text += `■ 리스크 프로파일\n`;
       riskData.forEach((r: any) => {
-        text += `• ${r.category}: ${Math.round(r.risk_level / 10)}점\n`;
+        text += `• ${r.category}: ${Math.round(r.risk_level)}점\n`;
       });
       text += '\n';
     }
@@ -254,7 +289,7 @@ function CompletionCard({ messages, userName }: { messages: Message[]; userName:
             <div className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wide mb-2">리스크 프로파일</div>
             <div className="flex flex-wrap gap-2">
               {riskData.map((r: any) => {
-                const score = Math.round(r.risk_level / 10);
+                const score = Math.round(r.risk_level);
                 const isHigh = score >= 7;
                 const isMid = score >= 4;
                 return (
@@ -326,14 +361,35 @@ function CompletionCard({ messages, userName }: { messages: Message[]; userName:
 }
 
 export default function ChatInterface({ userName, currentStage, onStageChange }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: `안녕하세요 ${userName}님, 지금 가장 걱정되시는 게 무엇인가요?`,
-      isUser: false,
-      timestamp: new Date()
+  // sessionStorage에서 저장된 메시지 불러오기
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const savedMessages = sessionStorage.getItem('kblife-chat-messages');
+      const savedUserName = sessionStorage.getItem('kblife-user-name');
+
+      if (savedMessages && savedUserName === userName) {
+        try {
+          const parsed = JSON.parse(savedMessages);
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+        } catch {
+          // 파싱 실패시 기본값 사용
+        }
+      }
     }
-  ]);
+
+    // 기본 초기 메시지
+    return [
+      {
+        id: '1',
+        content: `안녕하세요 ${userName}님. KB라이프 보험 설계 상담입니다. 맞춤형 설계를 위해 기본정보부터 확인하겠습니다. 먼저 나이와 성별을 알려주세요.`,
+        isUser: false,
+        timestamp: new Date()
+      }
+    ];
+  });
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -347,12 +403,47 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!currentMessage.trim() || isLoading) return;
+  // 메시지 변경시 sessionStorage에 저장
+  useEffect(() => {
+    if (typeof window !== 'undefined' && messages.length > 0) {
+      sessionStorage.setItem('kblife-chat-messages', JSON.stringify(messages));
+      sessionStorage.setItem('kblife-user-name', userName);
+    }
+  }, [messages, userName]);
+
+  // 다음 단계 이벤트 리스너
+  useEffect(() => {
+    const handleNextStageMessage = (event: CustomEvent) => {
+      if (!isLoading) {
+        setCurrentMessage(event.detail.message);
+        // 약간의 지연 후 자동으로 전송
+        setTimeout(() => {
+          handleSendWithMessage(event.detail.message);
+        }, 100);
+      }
+    };
+
+    window.addEventListener('sendNextStageMessage', handleNextStageMessage as EventListener);
+    return () => {
+      window.removeEventListener('sendNextStageMessage', handleNextStageMessage as EventListener);
+    };
+  }, [isLoading]);
+
+  // 입력창 자동 포커스 - 메시지 전송 후와 로딩 완료 후
+  useEffect(() => {
+    if (!isLoading && textareaRef.current) {
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
+    }
+  }, [isLoading, messages]);
+
+  const handleSendWithMessage = async (message: string) => {
+    if (!message.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: currentMessage,
+      content: message,
       isUser: true,
       timestamp: new Date()
     };
@@ -382,46 +473,65 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
       if (!response.ok) throw new Error('Failed to get response');
 
       const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      let aiContent = '';
       const decoder = new TextDecoder();
-      let content = '';
 
-      while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
-        content += decoder.decode(value);
-      }
-
-      const parsed = parseResponse(content);
-
-      const botMessage: Message = {
+      const tempAiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: parsed.cleanText,
-        isUser: false,
-        timestamp: new Date(),
-        visualizations: parsed.visualizations
-      };
-
-      setMessages(prev => [...prev, botMessage]);
-
-      const stageMatch = content.match(/###STAGE:(\d+)###/);
-      if (stageMatch) {
-        const newStage = parseInt(stageMatch[1]);
-        if (newStage !== currentStage) {
-          onStageChange(newStage);
-        }
-      }
-
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        content: '일시적인 오류가 발생했습니다. 다시 시도해 주세요.',
+        content: '',
         isUser: false,
         timestamp: new Date()
-      }]);
+      };
+
+      setMessages(prev => [...prev, tempAiMessage]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        aiContent += chunk;
+
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === tempAiMessage.id ? { ...m, content: aiContent } : m
+          )
+        );
+      }
+
+      const parsed = parseResponse(aiContent);
+      if (parsed.stage) {
+        onStageChange(parsed.stage);
+      }
+
+      if (parsed.visualizations?.length) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === tempAiMessage.id
+              ? { ...m, content: parsed.cleanText, visualizations: parsed.visualizations }
+              : m
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === tempAiMessage.id
+            ? { ...m, content: '죄송합니다. 오류가 발생했습니다. 다시 시도해 주세요.' }
+            : m
+        )
+      );
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSend = async () => {
+    if (!currentMessage.trim() || isLoading) return;
+    await handleSendWithMessage(currentMessage);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -472,7 +582,108 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                     prose-h3:text-sm prose-h4:text-sm
                     prose-code:text-xs prose-code:bg-[#f4f4f4] prose-code:px-1 prose-code:rounded
                     [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <ReactMarkdown>{message.content.replace(/#{1,}\s*STAGE\s*:\s*\d+\s*#{0,}/g, '')}</ReactMarkdown>
+                  </div>
+                )}
+
+                {/* Quick Response Buttons */}
+                {!message.isUser && !isLoading && currentStage === 1 && (
+                  <div className="mt-4">
+                    {/* 첫 번째 질문: 나이와 성별 */}
+                    {message.content.includes('나이와 성별') && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleSendWithMessage("남성")}
+                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          남성
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("여성")}
+                          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          여성
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 결혼 여부, 자녀 관련 질문 */}
+                    {(message.content.includes('결혼') || message.content.includes('자녀') || message.content.includes('가족')) && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleSendWithMessage("미혼")}
+                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
+                        >
+                          미혼
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("기혼, 자녀 없음")}
+                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
+                        >
+                          기혼, 자녀 없음
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("기혼, 자녀 1명")}
+                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
+                        >
+                          기혼, 자녀 1명
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("기혼, 자녀 2명")}
+                          className="px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
+                        >
+                          기혼, 자녀 2명
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 건강 상태 질문 */}
+                    {(message.content.includes('건강') || message.content.includes('질환')) && !message.content.includes('가족력') && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleSendWithMessage("특별한 질환 없음")}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                        >
+                          특별한 질환 없음
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("고혈압")}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                        >
+                          고혈압
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("당뇨")}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                        >
+                          당뇨
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 가족력 질문 */}
+                    {message.content.includes('가족력') && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleSendWithMessage("가족력 없음")}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                        >
+                          가족력 없음
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("암 가족력")}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                        >
+                          암 가족력
+                        </button>
+                        <button
+                          onClick={() => handleSendWithMessage("심혈관 가족력")}
+                          className="px-3 py-1.5 text-xs bg-yellow-100 hover:bg-yellow-200 rounded-lg transition-colors"
+                        >
+                          심혈관 가족력
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -612,6 +823,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
 
         <div ref={messagesEndRef} />
       </div>
+
 
       {/* Input area */}
       <div className="border-t border-[#e4e7ed] bg-white px-4 lg:px-8 py-4">
