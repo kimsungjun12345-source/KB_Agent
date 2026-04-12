@@ -146,11 +146,9 @@ function transformData(type: VizType, rawData: any): any {
   if (type === 'product_match') {
     return (rawData as any[]).map((item: any) => ({
       product_name: item.product_name,
-      match_score: item.gap_before > 0
-        ? Math.round(((item.gap_before - item.gap_after) / item.gap_before) * 100)
-        : 80,
-      monthly_premium: item.premium_monthly,
-      key_benefits: [item.covers_risk + ' 리스크 보장', item.reason].filter(Boolean),
+      match_score: item.match_score || 80,
+      monthly_premium: item.monthly_premium,
+      key_benefits: item.key_benefits || ['보장 혜택 제공'],
     }));
   }
   return rawData;
