@@ -193,6 +193,29 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
   );
 }
 
+interface GapAnalysisCardWithButtonProps {
+  data: Array<{ category: string; current_coverage: number; recommended_coverage: number; gap: number; over_coverage: number }>;
+  onNextStep?: () => void;
+}
+
+function GapAnalysisCardWithButton({ data, onNextStep }: GapAnalysisCardWithButtonProps) {
+  return (
+    <div className="space-y-4">
+      <GapChart data={data} />
+      {onNextStep && (
+        <div className="flex justify-center">
+          <button
+            onClick={onNextStep}
+            className="px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors"
+          >
+            상품 매칭 시작 →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Stage 9 완료 화면 ─── */
 function CompletionCard({ messages, userName }: { messages: Message[]; userName: string }) {
   const [copied, setCopied] = useState(false);
@@ -677,7 +700,10 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
 
                       {/* gap_analysis → 스택형 바 차트 */}
                       {viz.type === 'gap_analysis' && (
-                        <GapChart data={viz.data} />
+                        <GapAnalysisCardWithButton
+                          data={viz.data}
+                          onNextStep={() => handleSendWithMessage('상품 매칭을 시작해주세요')}
+                        />
                       )}
 
                       {/* product_match */}

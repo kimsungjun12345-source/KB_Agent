@@ -410,6 +410,24 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // 갭 분석 시각화 자동 주입 (갭 분석 결과 키워드 감지시)
+      if ((fullContent.includes('갭 분석 결과') || fullContent.includes('보장 갭')) &&
+          !fullContent.includes('"type": "gap_analysis"')) {
+
+        // 갭 분석 샘플 데이터 생성
+        const gapJson = JSON.stringify({
+          type: 'gap_analysis',
+          data: [
+            { category: '사망', current_coverage: 0, recommended_coverage: 3500, gap: 3500, over_coverage: 0 },
+            { category: '질병', current_coverage: 100, recommended_coverage: 1000, gap: 900, over_coverage: 0 },
+            { category: '상해', current_coverage: 0, recommended_coverage: 200, gap: 200, over_coverage: 0 },
+            { category: '소득중단', current_coverage: 0, recommended_coverage: 600, gap: 600, over_coverage: 0 },
+            { category: '노후', current_coverage: 0, recommended_coverage: 6000, gap: 6000, over_coverage: 0 }
+          ]
+        });
+        fullContent = fullContent.replace(/###VISUALIZATION###.*?###END_VISUALIZATION###/s, `###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`);
+      }
+
       // Stage 8 final_report 자동 주입 (최종 설계안 키워드 감지시)
       if (effectiveStage >= 8 &&
           (fullContent.includes('최종 설계안') || fullContent.includes('설계를 확정') || fullContent.includes('Final Call')) &&
