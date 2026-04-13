@@ -894,8 +894,11 @@ export async function POST(request: NextRequest) {
     content = content.replace(/\s{3,}/g, '\n\n').trim();
 
     // 상품 매칭 텍스트 감지 시 product_match 시각화 주입 (no-tool 경로)
+    // 단, 최종 설계안 상황에서는 제외
     const kbCount = (content.match(/KB\s+[^\n]{3,}/g) || []).length;
-    const isProductMatchText = kbCount >= 2 && !content.includes('###VISUALIZATION###');
+    const isFinalReportSituation = content.includes('최종 설계안을 정리') || content.includes('설계안을 정리해드리겠습니다') ||
+                                   content.includes('최종 설계가 확정') || content.includes('설계 상담이 완료');
+    const isProductMatchText = kbCount >= 2 && !content.includes('###VISUALIZATION###') && !isFinalReportSituation;
     if (isProductMatchText) {
       const { products: productsData } = loadData();
       const finalProducts = parseKbProducts(content, productsData);
