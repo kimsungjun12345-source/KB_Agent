@@ -23,7 +23,10 @@ interface ChatInterfaceProps {
 }
 
 /* ─── 리스크 레이더 (recharts) ─── */
-function RiskRadar({ data }: { data: { category: string; risk_level: number; industry_avg: number }[] }) {
+function RiskRadar({ data, onNextStep }: {
+  data: { category: string; risk_level: number; industry_avg: number }[];
+  onNextStep?: () => void;
+}) {
   const radarData = data.map(d => ({
     subject: d.category,
     score: d.risk_level,
@@ -159,6 +162,18 @@ function RiskRadar({ data }: { data: { category: string; risk_level: number; ind
           );
         })}
       </div>
+
+      {/* 다음 단계 버튼 */}
+      {onNextStep && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={onNextStep}
+            className="inline-flex items-center px-6 py-3 bg-[#3b82f6] text-white text-sm font-semibold rounded-lg hover:bg-[#2563eb] transition-colors duration-200 shadow-sm"
+          >
+            보장 갭 분석 시작 →
+          </button>
+        </div>
+      )}
 
     </div>
   );
@@ -759,7 +774,10 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
 
                       {/* risk_map → 레이더 차트 */}
                       {viz.type === 'risk_map' && (
-                        <RiskRadar data={viz.data} />
+                        <RiskRadar
+                          data={viz.data}
+                          onNextStep={() => handleSendWithMessage('보장 갭 분석을 시작해주세요')}
+                        />
                       )}
 
                       {/* gap_analysis → 스택형 바 차트 */}
