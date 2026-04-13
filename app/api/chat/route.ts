@@ -108,8 +108,43 @@ function loadData() {
   return dataCache;
 }
 
+// 상품별 리스크 매칭 점수 계산
+function calculateProductMatchScore(productName: string, riskScores: Record<string, number>): number {
+  // 상품별 주요 보장 영역 정의
+  const productRiskMap: Record<string, Record<string, number>> = {
+    '정기보험': { 사망: 0.9, 소득중단: 0.3, 질병: 0.1, 상해: 0.1, 노후: 0.0 },
+    '암보험': { 질병: 0.8, 사망: 0.2, 상해: 0.1, 소득중단: 0.0, 노후: 0.0 },
+    '건강보험': { 질병: 0.7, 상해: 0.4, 사망: 0.1, 소득중단: 0.1, 노후: 0.0 },
+    '연금보험': { 노후: 0.9, 소득중단: 0.2, 사망: 0.1, 질병: 0.0, 상해: 0.0 },
+    '간병보험': { 질병: 0.6, 노후: 0.4, 사망: 0.2, 상해: 0.1, 소득중단: 0.0 }
+  };
+
+  // 상품명에서 보험 유형 추출
+  let productType = '정기보험'; // 기본값
+  if (productName.includes('암')) productType = '암보험';
+  else if (productName.includes('건강')) productType = '건강보험';
+  else if (productName.includes('연금')) productType = '연금보험';
+  else if (productName.includes('간병')) productType = '간병보험';
+
+  const weights = productRiskMap[productType] || productRiskMap['정기보험'];
+
+  // 고객 리스크와 상품 보장 영역 매칭도 계산
+  let totalScore = 0;
+  let maxPossibleScore = 0;
+
+  for (const [risk, customerScore] of Object.entries(riskScores)) {
+    const weight = weights[risk] || 0;
+    totalScore += Math.min(customerScore, 10) * weight; // 최대 10점으로 정규화
+    maxPossibleScore += 10 * weight;
+  }
+
+  // 70-98% 범위로 매칭도 계산
+  const baseScore = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) : 0;
+  return Math.max(70, Math.min(98, Math.round(70 + baseScore * 28)));
+}
+
 // KB 상품 파서: 텍스트에서 KB 상품명·보험료·혜택을 추출하는 공유 함수
-function parseKbProducts(text: string, productsData: any): Array<{ product_name: string; match_score: number; monthly_premium: number; key_benefits: string[] }> {
+function parseKbProducts(text: string, productsData: any, riskScores?: Record<string, number>): Array<{ product_name: string; match_score: number; monthly_premium: number; key_benefits: string[] }> {
   function lookupPremium(name: string): number {
     // 로마자 앞 공백 제거 (예: "보험 II" → "보험II")
     const normalize = (n: string) => n.replace(/ (II|III|IV|V)(?=\s|$|무)/g, '$1');
@@ -151,9 +186,13 @@ function parseKbProducts(text: string, productsData: any): Array<{ product_name:
       }
       if (premium === 0) premium = lookupPremium(pname);
 
+      const matchScore = riskScores
+        ? calculateProductMatchScore(pname, riskScores)
+        : 88; // 기본값
+
       products.push({
         product_name: pname,
-        match_score: 88,
+        match_score: matchScore,
         monthly_premium: premium,
         key_benefits: benefits.length > 0 ? benefits : ['보장 혜택 제공'],
       });
@@ -959,7 +998,21 @@ export async function POST(request: NextRequest) {
     const isProductMatchText = kbCount >= 2 && !content.includes('###VISUALIZATION###') && !isFinalReportSituation;
     if (isProductMatchText) {
       const { products: productsData } = loadData();
-      const finalProducts = parseKbProducts(content, productsData);
+
+      // 메시지 히스토리에서 리스크 점수 추출
+      const riskScores: Record<string, number> = {};
+      const allText = messages.map((m: any) => m.content ?? '').join('\n');
+      const riskCategories = ['사망', '질병', '상해', '소득중단', '노후'];
+      for (const category of riskCategories) {
+        const scoreMatch = allText.match(new RegExp(`${category}[:\\s]*([0-9]+)점`, 'g'));
+        if (scoreMatch) {
+          const lastMatch = scoreMatch[scoreMatch.length - 1];
+          const score = lastMatch.match(/([0-9]+)점/)?.[1];
+          if (score) riskScores[category] = parseInt(score);
+        }
+      }
+
+      const finalProducts = parseKbProducts(content, productsData, riskScores);
       if (finalProducts.length >= 1) {
         content += `\n\n###VISUALIZATION###\n${JSON.stringify({ type: 'product_match', data: finalProducts })}\n###END_VISUALIZATION###`;
         console.log('상품 매칭 시각화 주입 완료 (no-tool path):', finalProducts.length, '개');
