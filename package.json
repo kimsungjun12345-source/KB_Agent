@@ -1,0 +1,37 @@
+{
+  "name": "insurance-agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=\"--max_old_space_size=4096\" next dev",
+    "build": "cross-env NODE_OPTIONS=\"--max_old_space_size=4096\" next build",
+    "start": "next start",
+    "lint": "eslint",
+    "server": "npx kill-port 3000 && npm run dev",
+    "quick": "npx kill-port 3000 && npm run dev"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "autoprefixer": "^10.4.27",
+    "chroma-js": "^3.2.0",
+    "chromadb": "^3.4.0",
+    "lucide-react": "^1.7.0",
+    "next": "16.2.2",
+    "openai": "^6.33.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.2",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5"
+  }
+}
