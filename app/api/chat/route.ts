@@ -162,6 +162,57 @@ function parseKbProducts(text: string, productsData: any): Array<{ product_name:
   return products;
 }
 
+function parseExistingInsurances(text: string): { type: string; coverage_amount: string }[] {
+  const insurances: { type: string; coverage_amount: string }[] = [];
+
+  // 실손보험 감지
+  if (text.includes('실손')) {
+    insurances.push({ type: '실손', coverage_amount: '1억미만' });
+  }
+
+  // 연금 준비 현황 파싱
+  const pensionPatterns = [
+    { regex: /국민연금.*퇴직연금|퇴직연금.*국민연금|국민연금.*DC|국민연금.*DB/i, status: '국민연금_퇴직연금' },
+    { regex: /개인연금.*있|IRP.*있|연금저축.*있|3가지.*이상|모두.*준비/i, status: '3가지_이상' },
+    { regex: /국민연금만|국민연금.*뿐/i, status: '국민연금만' },
+    { regex: /연금.*없|노후.*준비.*안|준비.*없|없음/i, status: '없음' }
+  ];
+
+  let pensionStatus = '국민연금만'; // 기본값
+  for (const pattern of pensionPatterns) {
+    if (pattern.regex.test(text)) {
+      pensionStatus = pattern.status;
+      break;
+    }
+  }
+
+  // 연금 준비 현황에 따라 기존 보험에 추가
+  if (pensionStatus === '국민연금_퇴직연금' || pensionStatus === '3가지_이상') {
+    insurances.push({ type: '연금보험', coverage_amount: '1억~3억' });
+  }
+  if (pensionStatus === '3가지_이상') {
+    insurances.push({ type: '개인연금', coverage_amount: '1억~3억' });
+  }
+
+  // 기타 보험들 감지 (간단한 패턴)
+  const otherInsurances = [
+    { regex: /정기보험|사망보험/i, type: '정기보험' },
+    { regex: /종신보험/i, type: '종신보험' },
+    { regex: /암보험/i, type: '암보험' },
+    { regex: /건강보험.*종합|종합.*건강보험/i, type: '종합건강보험' },
+    { regex: /상해보험/i, type: '상해보험' },
+    { regex: /간병보험/i, type: '간병보험' }
+  ];
+
+  for (const pattern of otherInsurances) {
+    if (pattern.regex.test(text)) {
+      insurances.push({ type: pattern.type, coverage_amount: '1억~3억' });
+    }
+  }
+
+  return insurances;
+}
+
 function buildDataContext(stage: number, customerAge?: number, customerGender?: 'male' | 'female'): string {
   const { products, statistics } = loadData();
 
@@ -637,7 +688,7 @@ export async function POST(request: NextRequest) {
       if (Object.keys(riskScores).length > 0) {
         const gapInput = {
           risk_scores: riskScores,
-          existing_insurances: allMsgText.includes('실손') ? [{ type: '실손', coverage_amount: '1억미만' }] : []
+          existing_insurances: parseExistingInsurances(allMsgText)
         };
 
         console.log('Executing forced gap analysis with:', gapInput);
@@ -751,11 +802,9 @@ export async function POST(request: NextRequest) {
 
         if (Object.keys(riskData).length > 0) {
           try {
-            const existingInsurance = allText.includes('실손') ? [{ type: '실손', coverage_amount: '1억미만' }] : [];
-
             const gapInput = {
               risk_scores: riskData,
-              existing_insurances: existingInsurance
+              existing_insurances: parseExistingInsurances(allText)
             };
 
             console.log('Executing gap analysis with extracted params:', gapInput);
