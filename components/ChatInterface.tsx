@@ -179,69 +179,177 @@ function RiskRadar({ data, onNextStep }: {
   );
 }
 
-/* ─── 보장갭 스택형 바 차트 ─── */
+/* ─── 개선된 보장갭 차트 ─── */
 function GapChart({ data }: { data: { category: string; current_coverage: number; recommended_coverage: number; gap: number }[] }) {
   return (
     <div>
-      {/* 범례 */}
-      <div className="flex items-center gap-4 mb-3 px-1">
-        <div className="flex items-center gap-1.5 text-[10px] text-[#6b7280]">
-          <div className="w-2.5 h-2.5 rounded-sm bg-[#66BB6A]" />
-          현재 보장
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-[#6b7280]">
-          <div className="w-2.5 h-2.5 rounded-sm bg-[#EF5350]" />
-          보장 갭
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-[#6b7280]">
-          <div className="w-2.5 h-2.5 rounded-sm bg-[#e4e7ed] border border-[#d1d5db]" />
-          미보장
+      {/* 헤더 및 범례 */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gray-800">보장 갭 분석 결과</h3>
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-[#10B981]" />
+              <span className="text-gray-600">현재 보장</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-[#EF4444]" />
+              <span className="text-gray-600">보장 갭</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm bg-[#E5E7EB] border border-gray-300" />
+              <span className="text-gray-600">미보장</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {data.map(item => {
+      {/* 개선된 카드 스타일 */}
+      <div className="space-y-4">
+        {data.map((item, index) => {
           const rec = item.recommended_coverage || 1;
           const coveredPct = Math.min(100, Math.round((item.current_coverage / rec) * 100));
-          const gapPct     = Math.min(100 - coveredPct, Math.round((item.gap / rec) * 100));
+          const gapPct = Math.min(100 - coveredPct, Math.round((item.gap / rec) * 100));
           const isOk = item.gap <= 0;
-          const badgeColor = coveredPct < 40 ? { bg: '#FFEBEE', text: '#C62828' }
-                           : coveredPct < 80 ? { bg: '#FFF9DC', text: '#856A00' }
-                           : { bg: '#E8F5E9', text: '#2E7D32' };
+
+          // 상태별 스타일 설정
+          const getStatusConfig = () => {
+            if (isOk) return {
+              bgColor: '#F0FDF4',
+              borderColor: '#BBF7D0',
+              iconColor: '#10B981',
+              textColor: '#065F46',
+              icon: '✅',
+              status: '충족',
+              statusBg: '#DCFCE7'
+            };
+            if (coveredPct < 40) return {
+              bgColor: '#FEF2F2',
+              borderColor: '#FECACA',
+              iconColor: '#EF4444',
+              textColor: '#991B1B',
+              icon: '⚠️',
+              status: '심각',
+              statusBg: '#FEE2E2'
+            };
+            return {
+              bgColor: '#FFFBEB',
+              borderColor: '#FDE68A',
+              iconColor: '#F59E0B',
+              textColor: '#92400E',
+              icon: '⚡',
+              status: '주의',
+              statusBg: '#FEF3C7'
+            };
+          };
+
+          const config = getStatusConfig();
 
           return (
-            <div key={item.category}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-[#374151] w-16 flex-shrink-0">
-                  {item.category}
-                </span>
-                <div className="flex-1 mx-2 h-6 bg-[#f4f4f4] rounded-md overflow-hidden flex">
-                  {/* 충족 구간 */}
-                  {coveredPct > 0 && (
+            <div
+              key={item.category}
+              className="group relative rounded-xl border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] cursor-pointer"
+              style={{
+                background: `linear-gradient(135deg, ${config.bgColor} 0%, white 100%)`,
+                borderColor: config.borderColor
+              }}
+            >
+              <div className="p-4">
+                {/* 헤더: 카테고리와 상태 */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
                     <div
-                      className="h-full transition-all duration-700 ease-out"
-                      style={{ width: `${coveredPct}%`, background: '#66BB6A' }}
-                    />
-                  )}
-                  {/* 갭 구간 */}
-                  {gapPct > 0 && (
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                      style={{ backgroundColor: config.iconColor + '20' }}
+                    >
+                      <span>{config.icon}</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-800">{item.category}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          style={{
+                            backgroundColor: config.statusBg,
+                            color: config.textColor
+                          }}
+                        >
+                          {config.status}
+                        </span>
+                        {!isOk && (
+                          <span className="text-xs text-gray-600">
+                            {Math.round(item.gap / 10000).toLocaleString()}만원 부족
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 충족률 퍼센트 */}
+                  <div className="text-right">
                     <div
-                      className="h-full transition-all duration-700 ease-out"
-                      style={{ width: `${gapPct}%`, background: '#EF5350' }}
-                    />
-                  )}
+                      className="text-2xl font-bold"
+                      style={{ color: config.iconColor }}
+                    >
+                      {coveredPct}%
+                    </div>
+                    <div className="text-xs text-gray-500">충족률</div>
+                  </div>
                 </div>
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                  style={{ background: badgeColor.bg, color: badgeColor.text }}
-                >
-                  {isOk ? '충족' : `갭 ${Math.round(item.gap / 10000)}만`}
-                </span>
+
+                {/* 진행률 바 */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+                    <span>보장 수준</span>
+                    <span>{Math.round(item.recommended_coverage / 10000).toLocaleString()}만원 권장</span>
+                  </div>
+
+                  <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                    {/* 현재 보장 */}
+                    {coveredPct > 0 && (
+                      <div
+                        className="absolute left-0 h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: `${coveredPct}%`,
+                          backgroundColor: '#10B981',
+                          animation: `slideIn 1.2s ease-out ${index * 0.2}s both`
+                        }}
+                      />
+                    )}
+                    {/* 보장 갭 */}
+                    {gapPct > 0 && (
+                      <div
+                        className="absolute h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          left: `${coveredPct}%`,
+                          width: `${gapPct}%`,
+                          backgroundColor: '#EF4444',
+                          animation: `slideIn 1.2s ease-out ${index * 0.2 + 0.3}s both`
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* 상세 정보 */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-white bg-opacity-60 rounded-lg p-3 border">
+                    <div className="text-xs text-gray-500 mb-1">현재 보장</div>
+                    <div className="font-semibold text-gray-800">
+                      {Math.round(item.current_coverage / 10000).toLocaleString()}만원
+                    </div>
+                  </div>
+                  <div className="bg-white bg-opacity-60 rounded-lg p-3 border">
+                    <div className="text-xs text-gray-500 mb-1">권장 보장</div>
+                    <div className="font-semibold text-gray-800">
+                      {Math.round(item.recommended_coverage / 10000).toLocaleString()}만원
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-[9px] text-[#9ca3af] px-0 ml-16 mr-[68px]">
-                <span>현재 {Math.round(item.current_coverage / 10000)}만원</span>
-                <span>권장 {Math.round(item.recommended_coverage / 10000)}만원</span>
-              </div>
+
+              {/* 호버 이팩트 */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none"></div>
             </div>
           );
         })}
