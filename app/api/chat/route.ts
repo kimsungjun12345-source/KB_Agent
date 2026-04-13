@@ -187,10 +187,14 @@ function parseExistingInsurances(text: string): { type: string; coverage_amount:
   }
 
   // 연금 준비 현황에 따라 기존 보험에 추가
-  if (pensionStatus === '국민연금_퇴직연금' || pensionStatus === '3가지_이상') {
+  if (pensionStatus === '국민연금만') {
+    insurances.push({ type: '국민연금', coverage_amount: '1억미만' });
+  } else if (pensionStatus === '국민연금_퇴직연금') {
+    insurances.push({ type: '국민연금', coverage_amount: '1억미만' });
     insurances.push({ type: '연금보험', coverage_amount: '1억~3억' });
-  }
-  if (pensionStatus === '3가지_이상') {
+  } else if (pensionStatus === '3가지_이상') {
+    insurances.push({ type: '국민연금', coverage_amount: '1억미만' });
+    insurances.push({ type: '연금보험', coverage_amount: '1억~3억' });
     insurances.push({ type: '개인연금', coverage_amount: '1억~3억' });
   }
 
