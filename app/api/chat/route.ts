@@ -165,6 +165,8 @@ function parseKbProducts(text: string, productsData: any): Array<{ product_name:
 function parseExistingInsurances(text: string): { type: string; coverage_amount: string }[] {
   const insurances: { type: string; coverage_amount: string }[] = [];
 
+  console.log('parseExistingInsurances called with text excerpt:', text.substring(0, 200));
+
   // 실손보험 감지
   if (text.includes('실손')) {
     insurances.push({ type: '실손', coverage_amount: '1억미만' });
@@ -185,6 +187,8 @@ function parseExistingInsurances(text: string): { type: string; coverage_amount:
       break;
     }
   }
+
+  console.log('Detected pension status:', pensionStatus);
 
   // 연금 준비 현황에 따라 기존 보험에 추가
   if (pensionStatus === '국민연금만') {
@@ -214,6 +218,7 @@ function parseExistingInsurances(text: string): { type: string; coverage_amount:
     }
   }
 
+  console.log('Final parsed insurances:', insurances);
   return insurances;
 }
 
