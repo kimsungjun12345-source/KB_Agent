@@ -704,8 +704,8 @@ export async function POST(request: NextRequest) {
           data: Object.entries(gapResult).map(([category, data]: [string, any]) => ({
             category,
             current_coverage: data.covered || 0,
-            recommended_coverage: Math.round(data.risk * 400),
-            gap: Math.max(0, Math.round(data.risk * 400) - (data.covered || 0)),
+            recommended_coverage: data.risk || 1,
+            gap: data.gap || 0,
             over_coverage: 0
           }))
         });
