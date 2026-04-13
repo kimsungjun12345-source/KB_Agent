@@ -669,15 +669,50 @@ export async function POST(request: NextRequest) {
       if (fn.name !== 'calculate_gap_analysis' &&
           (fullContent.includes('갭 분석 결과') || fullContent.includes('보장 갭')) &&
           !fullContent.includes('###VISUALIZATION###')) {
+
+        // 메시지에서 리스크 점수 추출하여 현실적인 갭 분석 생성
+        const riskScores: Record<string, number> = {};
+        const allText = messages.map((m: any) => m.content ?? '').join('\n');
+        const riskCategories = ['사망', '질병', '상해', '소득중단', '노후'];
+        for (const category of riskCategories) {
+          const scoreMatch = allText.match(new RegExp(`${category}[:\\s]*([0-9]+)점`, 'g'));
+          if (scoreMatch) {
+            const lastMatch = scoreMatch[scoreMatch.length - 1];
+            const score = lastMatch.match(/([0-9]+)점/)?.[1];
+            if (score) riskScores[category] = parseInt(score);
+          }
+        }
+
+        // 기본 리스크 점수 (추출 실패 시)
+        const defaultRisks = { 사망: 5, 질병: 6, 상해: 4, 소득중단: 5, 노후: 4 };
+
+        // 모든 리스크를 한 번에 계산
+        const allRisks = riskCategories.reduce((acc, cat) => {
+          acc[cat] = riskScores[cat] || defaultRisks[cat];
+          return acc;
+        }, {} as Record<string, number>);
+
+        const existingInsurances = parseExistingInsurances(allText);
+        const { calculateGapAnalysis } = require('@/lib/gapCalculator');
+        const gapResult = calculateGapAnalysis({
+          risk_scores: allRisks,
+          existing_insurances: existingInsurances
+        });
+
+        const gapData = riskCategories.map(category => {
+          const categoryResult = gapResult[category];
+          return {
+            category,
+            current_coverage: categoryResult?.covered || 0,
+            recommended_coverage: categoryResult?.risk || allRisks[category],
+            gap: categoryResult?.gap || allRisks[category],
+            over_coverage: 0
+          };
+        });
+
         const gapJson = JSON.stringify({
           type: 'gap_analysis',
-          data: [
-            { category: '사망', current_coverage: 0, recommended_coverage: 5000000, gap: 5000000, over_coverage: 0 },
-            { category: '질병', current_coverage: 0, recommended_coverage: 8000000, gap: 8000000, over_coverage: 0 },
-            { category: '상해', current_coverage: 0, recommended_coverage: 2000000, gap: 2000000, over_coverage: 0 },
-            { category: '소득중단', current_coverage: 0, recommended_coverage: 6000000, gap: 6000000, over_coverage: 0 },
-            { category: '노후', current_coverage: 0, recommended_coverage: 40000000, gap: 40000000, over_coverage: 0 }
-          ]
+          data: gapData
         });
         fullContent += `\n\n###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`;
       }
