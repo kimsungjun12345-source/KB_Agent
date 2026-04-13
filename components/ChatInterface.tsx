@@ -204,8 +204,8 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
         </div>
       </div>
 
-      {/* 개선된 카드 스타일 */}
-      <div className="space-y-4">
+      {/* 축소된 카드 스타일 */}
+      <div className="space-y-2">
         {data.map((item, index) => {
           const rec = item.recommended_coverage || 1;
           const coveredPct = Math.min(100, Math.round((item.current_coverage / rec) * 100));
@@ -248,25 +248,25 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
           return (
             <div
               key={item.category}
-              className="group relative rounded-xl border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] cursor-pointer"
+              className="group relative rounded-lg border transition-all duration-200 hover:shadow-md hover:scale-[1.005] cursor-pointer"
               style={{
                 background: `linear-gradient(135deg, ${config.bgColor} 0%, white 100%)`,
                 borderColor: config.borderColor
               }}
             >
-              <div className="p-4">
+              <div className="p-3">
                 {/* 헤더: 카테고리와 상태 */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-sm flex-shrink-0"
                       style={{ backgroundColor: config.iconColor + '20' }}
                     >
                       <span>{config.icon}</span>
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-gray-800">{item.category}</h4>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-1.5 mt-0.5">
                         <span
                           className="px-2 py-0.5 rounded-full text-xs font-semibold"
                           style={{
@@ -288,7 +288,7 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
                   {/* 충족률 퍼센트 */}
                   <div className="text-right">
                     <div
-                      className="text-2xl font-bold"
+                      className="text-xl font-bold"
                       style={{ color: config.iconColor }}
                     >
                       {coveredPct}%
@@ -298,13 +298,13 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
                 </div>
 
                 {/* 진행률 바 */}
-                <div className="mb-3">
-                  <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+                <div className="mb-2">
+                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
                     <span>보장 수준</span>
                     <span>{Math.round(item.recommended_coverage / 10000).toLocaleString()}만원 권장</span>
                   </div>
 
-                  <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                  <div className="relative h-2.5 bg-gray-200 rounded-full overflow-hidden shadow-inner">
                     {/* 현재 보장 */}
                     {coveredPct > 0 && (
                       <div
@@ -332,16 +332,16 @@ function GapChart({ data }: { data: { category: string; current_coverage: number
                 </div>
 
                 {/* 상세 정보 */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="bg-white bg-opacity-60 rounded-lg p-3 border">
-                    <div className="text-xs text-gray-500 mb-1">현재 보장</div>
-                    <div className="font-semibold text-gray-800">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="bg-white bg-opacity-60 rounded-md p-2.5 border">
+                    <div className="text-xs text-gray-500 mb-0.5">현재 보장</div>
+                    <div className="font-semibold text-gray-800 text-sm">
                       {Math.round(item.current_coverage / 10000).toLocaleString()}만원
                     </div>
                   </div>
-                  <div className="bg-white bg-opacity-60 rounded-lg p-3 border">
-                    <div className="text-xs text-gray-500 mb-1">권장 보장</div>
-                    <div className="font-semibold text-gray-800">
+                  <div className="bg-white bg-opacity-60 rounded-md p-2.5 border">
+                    <div className="text-xs text-gray-500 mb-0.5">권장 보장</div>
+                    <div className="font-semibold text-gray-800 text-sm">
                       {Math.round(item.recommended_coverage / 10000).toLocaleString()}만원
                     </div>
                   </div>
@@ -777,6 +777,23 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                       .replace(/([.!?)]) (- (?=[가-힣]))/g, '$1\n\n$2')
                       .replace(/([^\n])(- (?:사망|질병|상해|소득중단|노후|KB))/g, '$1\n\n$2')
                     }</ReactMarkdown>
+                  </div>
+                )}
+
+                {/* 제도 안내 완료 버튼 - STAGE 4 고지의무 안내 후 */}
+                {!message.isUser && !isLoading &&
+                 (message.content.includes('고지의무') ||
+                  message.content.includes('청약철회') ||
+                  message.content.includes('면책기간') ||
+                  message.content.includes('상품 안내 전')) &&
+                 !message.visualizations && (
+                  <div className="mt-4 text-center">
+                    <button
+                      onClick={() => handleSendWithMessage('제도 안내 내용을 이해했습니다. 상품 매칭을 진행해주세요.')}
+                      className="inline-flex items-center px-6 py-3 bg-[#3b82f6] text-white text-sm font-semibold rounded-lg hover:bg-[#2563eb] transition-colors duration-200 shadow-sm"
+                    >
+                      이해했습니다. 상품 안내 시작 →
+                    </button>
                   </div>
                 )}
 
