@@ -176,8 +176,8 @@ function parseExistingInsurances(text: string): { type: string; coverage_amount:
   const pensionPatterns = [
     { regex: /국민연금.*퇴직연금|퇴직연금.*국민연금|국민연금.*DC|국민연금.*DB/i, status: '국민연금_퇴직연금' },
     { regex: /개인연금.*있|IRP.*있|연금저축.*있|3가지.*이상|모두.*준비/i, status: '3가지_이상' },
-    { regex: /국민연금만|국민연금.*뿐/i, status: '국민연금만' },
-    { regex: /연금.*없|노후.*준비.*안|준비.*없|없음/i, status: '없음' }
+    { regex: /연금.*없|노후.*준비.*안|준비.*없|없음/i, status: '없음' },
+    { regex: /국민연금/i, status: '국민연금만' }  // 가장 넓은 패턴을 마지막에
   ];
 
   let pensionStatus = '국민연금만'; // 기본값
