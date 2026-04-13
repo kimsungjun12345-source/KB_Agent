@@ -32,20 +32,20 @@ function RiskRadar({ data }: { data: { category: string; risk_level: number; ind
 
   return (
     <div>
-      <ResponsiveContainer width="100%" height={220}>
-        <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
+      <ResponsiveContainer width="100%" height={250}>
+        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
           <PolarGrid stroke="#e4e7ed" />
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fontSize: 10, fill: '#374151', fontWeight: 600 }}
+            tick={{ fontSize: 11, fill: '#374151', fontWeight: 600 }}
           />
           <Radar
             name="내 리스크"
             dataKey="score"
             fill="#F5C400"
-            fillOpacity={0.35}
+            fillOpacity={0.4}
             stroke="#D4A900"
-            strokeWidth={2}
+            strokeWidth={2.5}
             dot={{ r: 4, fill: '#D4A900', stroke: 'white', strokeWidth: 1.5 } as any}
           />
           <Radar
@@ -63,42 +63,96 @@ function RiskRadar({ data }: { data: { category: string; risk_level: number; ind
         </RadarChart>
       </ResponsiveContainer>
 
-      {/* 점수 범례 */}
-      <div className="mt-2 space-y-2">
+      {/* 개선된 점수 범례 */}
+      <div className="mt-3 space-y-2">
         {data.map(item => {
           const s = Math.round(item.risk_level);
           const isHigh = s >= 7;
           const isMid  = s >= 4 && s < 7;
+
+          const getRiskStyle = () => {
+            if (isHigh) return {
+              bgColor: '#FEF2F2',
+              borderColor: '#FCA5A5',
+              badgeColor: '#DC2626',
+              textColor: '#DC2626',
+              progressColor: '#DC2626',
+              label: '높음'
+            };
+            if (isMid) return {
+              bgColor: '#FFFBEB',
+              borderColor: '#FDE68A',
+              badgeColor: '#D97706',
+              textColor: '#D97706',
+              progressColor: '#D97706',
+              label: '보통'
+            };
+            return {
+              bgColor: '#F0FDF4',
+              borderColor: '#BBF7D0',
+              badgeColor: '#059669',
+              textColor: '#059669',
+              progressColor: '#059669',
+              label: '낮음'
+            };
+          };
+
+          const style = getRiskStyle();
+
           return (
             <div
               key={item.category}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
-              style={{ background: isHigh ? '#FFF0F0' : isMid ? '#FFF9DC' : '#F4F4F4' }}
+              className="flex items-center gap-3 px-3 py-3 rounded-lg border transition-all duration-200 hover:shadow-md"
+              style={{
+                backgroundColor: style.bgColor,
+                borderColor: style.borderColor
+              }}
             >
+              {/* 점수 원형 배지 */}
               <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{
-                  background: isHigh ? '#C0392B' : isMid ? '#F5C400' : '#C4C4C4',
-                  color: isHigh ? '#fff' : '#1A1A1A',
-                }}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                style={{ backgroundColor: style.badgeColor }}
               >
                 {s}
               </div>
+
+              {/* 카테고리 정보 */}
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-[#1A1A1A]">{item.category}</div>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <div className="flex-1 h-[3px] bg-[#e4e7ed] rounded-full overflow-hidden">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-sm font-semibold text-gray-800">{item.category}</div>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                    style={{
+                      backgroundColor: style.textColor + '20',
+                      color: style.textColor
+                    }}
+                  >
+                    {style.label}
+                  </span>
+                </div>
+
+                {/* 진행률 바 */}
+                <div className="relative">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden relative">
                     <div
-                      className="h-full rounded-full transition-all duration-700"
+                      className="h-full rounded-full transition-all duration-1000 ease-out"
                       style={{
-                        width: `${item.risk_level}%`,
-                        background: isHigh ? '#C0392B' : isMid ? '#D4A900' : '#C4C4C4',
+                        width: `${Math.min((item.risk_level / 10) * 100, 100)}%`,
+                        backgroundColor: style.progressColor
                       }}
                     />
+                    {/* 업계 평균 표시선 */}
+                    <div
+                      className="absolute top-0 h-full w-0.5 bg-gray-500"
+                      style={{ left: `${Math.min((item.industry_avg / 10) * 100, 100)}%` }}
+                    />
                   </div>
-                  <span className="text-[9px] text-[#9ca3af] flex-shrink-0">
-                    업계 {item.industry_avg}
-                  </span>
+
+                  {/* 수치 표시 */}
+                  <div className="flex justify-between text-xs text-gray-600 mt-1">
+                    <span>내 점수: <strong style={{ color: style.textColor }}>{s}점</strong></span>
+                    <span>업계 평균: {Math.round(item.industry_avg)}점</span>
+                  </div>
                 </div>
               </div>
             </div>
