@@ -108,6 +108,60 @@ function loadData() {
   return dataCache;
 }
 
+// KB 상품 파서: 텍스트에서 KB 상품명·보험료·혜택을 추출하는 공유 함수
+function parseKbProducts(text: string, productsData: any): Array<{ product_name: string; match_score: number; monthly_premium: number; key_benefits: string[] }> {
+  function lookupPremium(name: string): number {
+    // 로마자 앞 공백 제거 (예: "보험 II" → "보험II")
+    const normalize = (n: string) => n.replace(/ (II|III|IV|V)(?=\s|$|무)/g, '$1');
+    const base = normalize(name.replace(/\s*\(.*?\)/g, '').replace(/\s+무배당.*$/, '').trim());
+    const found = productsData.products.find((p: any) => {
+      const pBase = normalize(p.name.replace(/\s*무배당.*$/, ''));
+      return pBase.includes(base.split(/\s+/).slice(0, 3).join(' ')) ||
+             base.includes(pBase.split(/\s+/).slice(0, 3).join(' '));
+    });
+    if (!found) return 0;
+    const m = found.premiums?.sample_male?.[30] || found.premiums?.sample_female?.[30] || 0;
+    return typeof m === 'number' ? m : parseInt(String(m).replace(/,/g, '')) || 0;
+  }
+
+  // KB 상품명 패턴: 위치/형식 무관, 하이픈 포함
+  const kbNamePattern = /KB\s+[가-힣a-zA-Z0-9\s·\-]+?(?:무배당|보험\s*II|연금보험|암보험|건강보험)(?:\s*\([^)\n]+\))?/g;
+  const lines = text.split('\n');
+  const products: any[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    kbNamePattern.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = kbNamePattern.exec(line)) !== null) {
+      const pname = m[0].trim();
+      if (seen.has(pname)) continue;
+      seen.add(pname);
+
+      // 인접 라인에서 보험료·혜택 수집
+      let premium = 0;
+      const benefits: string[] = [];
+      for (let j = i + 1; j <= Math.min(i + 7, lines.length - 1); j++) {
+        if (j > i + 1 && /KB\s+[가-힣a-zA-Z0-9]/.test(lines[j])) break;
+        const premMatch = lines[j].match(/월\s*보험료:\s*([\d,]+)원/);
+        if (premMatch && premium === 0) premium = parseInt(premMatch[1].replace(/,/g, ''));
+        const bMatch = lines[j].match(/[-•*]\s+(?!KB)(.{4,})/);
+        if (bMatch && benefits.length < 2) benefits.push(bMatch[1].trim());
+      }
+      if (premium === 0) premium = lookupPremium(pname);
+
+      products.push({
+        product_name: pname,
+        match_score: 88,
+        monthly_premium: premium,
+        key_benefits: benefits.length > 0 ? benefits : ['보장 혜택 제공'],
+      });
+    }
+  }
+  return products;
+}
+
 function buildDataContext(stage: number, customerAge?: number, customerGender?: 'male' | 'female'): string {
   const { products, statistics } = loadData();
 
@@ -312,11 +366,13 @@ export async function POST(request: NextRequest) {
       console.log('🔥 Stage 3: Forcing gap analysis');
     }
 
+    let advancedToStage4 = false;
     if (effectiveStage === 3 && (hasGapAnalysis || allMsgText.includes('보장 갭') || allMsgText.includes('추가 보장이 필요한'))) {
       effectiveStage = 4;
+      advancedToStage4 = true;
       console.log('Stage 3→4 auto upgrade: Gap analysis detected');
     }
-    if (effectiveStage === 4 && allMsgText.includes('고지의무')) {
+    if (!advancedToStage4 && effectiveStage === 4 && allMsgText.includes('고지의무')) {
       effectiveStage = 5;
       console.log('Stage 4→5 auto upgrade: Important notice detected');
     }
@@ -448,63 +504,107 @@ export async function POST(request: NextRequest) {
 
       fullContent = nuclearJsonRemoval(fullContent);
 
-      // 💀 모든 시각화 마커 주입 완전 차단
-      console.log('모든 JSON 주입이 차단됨');
+      // LLM이 직접 생성한 마커 쉘 제거 (우리가 직접 주입하기 전에)
+      fullContent = fullContent.replace(/###VISUALIZATION###[\s\S]*?###END_VISUALIZATION###/g, '');
+      fullContent = fullContent.replace(/#{1,}(?:END_)?VISUALIZATION#{0,}/gi, '').replace(/\n{3,}/g, '\n\n').trim();
 
-      // 💀 리스크 맵 자동 주입 완전 차단
-      console.log('리스크 맵 자동 주입 차단됨');
+      // 리스크 맵 시각화 주입 (calculate_risk_scores 툴 결과 기반)
+      if (fn.name === 'calculate_risk_scores') {
+        const r = toolResult as any;
+        const riskMapJson = JSON.stringify({
+          type: 'risk_map',
+          data: {
+            사망: r.사망 ?? 0,
+            질병: r.질병 ?? 0,
+            상해: r.상해 ?? 0,
+            소득중단: r.소득중단 ?? 0,
+            노후: r.노후 ?? 0,
+          }
+        });
+        fullContent += `\n\n###VISUALIZATION###\n${riskMapJson}\n###END_VISUALIZATION###`;
+        console.log('리스크 맵 시각화 주입 완료');
+      }
 
-      // 갭 분석 시각화 자동 주입 (갭 분석 결과 키워드 감지시)
-      if ((fullContent.includes('갭 분석 결과') || fullContent.includes('보장 갭')) &&
-          !fullContent.includes('"type": "gap_analysis"')) {
+      // 갭 분석 시각화 주입 (calculate_gap_analysis 툴 결과 기반)
+      if (fn.name === 'calculate_gap_analysis') {
+        // 고지의무/상품매칭 텍스트가 붙어있으면 제거 (다음 단계에서 독립 메시지로 표시)
+        const noticeKeywords = ['이제 보험 가입 전', '중요사항을 안내드리겠습니다', '고지의무:', '분석 결과를 바탕으로 적합한 상품을 매칭'];
+        let cutIdx = fullContent.length;
+        for (const kw of noticeKeywords) {
+          const idx = fullContent.indexOf(kw);
+          if (idx > 0 && idx < cutIdx) cutIdx = idx;
+        }
+        if (cutIdx < fullContent.length) {
+          fullContent = fullContent.substring(0, cutIdx).trim();
+          console.log('Gap analysis: 고지의무/product_match 텍스트 제거됨');
+        }
+        // 안전망: 전환 멘트가 남아있으면 추가 제거
+        fullContent = fullContent
+          .replace(/고지의무 안내가 끝난 후[^.\n]*[.!]?\n?/g, '')
+          .replace(/이제 분석 결과를 바탕으로[^.\n]*[.!]?\n?/g, '')
+          .replace(/분석 결과를 바탕으로 적합한 상품을 매칭[^.\n]*[.!]?\n?/g, '')
+          .trim();
 
-        // 갭 분석 샘플 데이터 생성
+        const g = toolResult as any;
+        // 값 * SCALE → 원 단위 (ChatInterface에서 / 10000 하여 만원으로 표시)
+        const SCALE: Record<string, number> = { 사망: 5000000, 질병: 2000000, 상해: 1000000, 소득중단: 3000000, 노후: 10000000 };
+        const gapData = ['사망', '질병', '상해', '소득중단', '노후'].map(cat => {
+          const d = g[cat] ?? { risk: 0, covered: 0, gap: 0 };
+          const scale = SCALE[cat];
+          const rec = Math.round(d.risk * scale);
+          const cur = Math.round(d.covered * scale);
+          return {
+            category: cat,
+            current_coverage: cur,
+            recommended_coverage: rec,
+            gap: Math.max(0, rec - cur),
+            over_coverage: Math.max(0, cur - rec),
+          };
+        });
+        const gapJson = JSON.stringify({ type: 'gap_analysis', data: gapData });
+        fullContent += `\n\n###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`;
+        console.log('갭 분석 시각화 주입 완료');
+      }
+
+      // 키워드 감지 기반 갭 분석 주입 (툴 결과 없는 경우 fallback)
+      if (fn.name !== 'calculate_gap_analysis' &&
+          (fullContent.includes('갭 분석 결과') || fullContent.includes('보장 갭')) &&
+          !fullContent.includes('###VISUALIZATION###')) {
         const gapJson = JSON.stringify({
           type: 'gap_analysis',
           data: [
-            { category: '사망', current_coverage: 0, recommended_coverage: 3500, gap: 3500, over_coverage: 0 },
-            { category: '질병', current_coverage: 100, recommended_coverage: 1000, gap: 900, over_coverage: 0 },
-            { category: '상해', current_coverage: 0, recommended_coverage: 200, gap: 200, over_coverage: 0 },
-            { category: '소득중단', current_coverage: 0, recommended_coverage: 600, gap: 600, over_coverage: 0 },
-            { category: '노후', current_coverage: 0, recommended_coverage: 6000, gap: 6000, over_coverage: 0 }
+            { category: '사망', current_coverage: 0, recommended_coverage: 5000000, gap: 5000000, over_coverage: 0 },
+            { category: '질병', current_coverage: 0, recommended_coverage: 8000000, gap: 8000000, over_coverage: 0 },
+            { category: '상해', current_coverage: 0, recommended_coverage: 2000000, gap: 2000000, over_coverage: 0 },
+            { category: '소득중단', current_coverage: 0, recommended_coverage: 6000000, gap: 6000000, over_coverage: 0 },
+            { category: '노후', current_coverage: 0, recommended_coverage: 40000000, gap: 40000000, over_coverage: 0 }
           ]
         });
-        fullContent = fullContent.replace(/###VISUALIZATION###.*?###END_VISUALIZATION###/s, `###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`);
+        fullContent += `\n\n###VISUALIZATION###\n${gapJson}\n###END_VISUALIZATION###`;
       }
 
-      // 상품 매칭 시각화 자동 주입 (상품 매칭 키워드 감지시)
-      if ((fullContent.includes('상품을 매칭해드리겠습니다') || fullContent.includes('적합한 상품을 매칭')) &&
+      // 상품 매칭 시각화 주입은 risk_map/gap_analysis와 동시에 하지 않음
+      // (parseResponse는 첫 번째 블록만 표시하다가 두 번째가 본문에 노출되는 문제 방지)
+      // Stage 5 이상에서 product_match가 아직 없을 때만 주입
+      const alreadyHasViz = fn.name === 'calculate_risk_scores' || fn.name === 'calculate_gap_analysis';
+      if (!alreadyHasViz &&
+          (fullContent.includes('상품을 매칭해드리겠습니다') || fullContent.includes('적합한 상품을 매칭')) &&
+          !fullContent.includes('"type":"product_match"') &&
           !fullContent.includes('"type": "product_match"')) {
-
-        // 상품 매칭 샘플 데이터 생성
-        const productJson = JSON.stringify({
-          type: 'product_match',
-          data: [
-            {
-              product_name: "KB무배당 착한정기보험II",
-              match_score: 95,
-              monthly_premium: 45000,
-              key_benefits: ["사망보험금 3억원", "재해사망 추가보장"]
-            },
-            {
-              product_name: "KB딱좋은 e-건강보험",
-              match_score: 88,
-              monthly_premium: 35000,
-              key_benefits: ["질병보장 1천만원", "입원비 일당지급"]
-            },
-            {
-              product_name: "KB하이파이브평생연금보험",
-              match_score: 92,
-              monthly_premium: 50000,
-              key_benefits: ["평생연금 지급", "원금보장형"]
-            }
-          ]
-        });
-        fullContent += `\n\n###VISUALIZATION###\n${productJson}\n###END_VISUALIZATION###`;
+        // LLM 텍스트에서 실제 상품 파싱 시도
+        const { products: productsData } = loadData();
+        const parsedForTool = parseKbProducts(fullContent, productsData);
+        const productData = parsedForTool.length >= 2 ? parsedForTool : [
+          { product_name: "KB무배당 착한정기보험II", match_score: 95, monthly_premium: 45000, key_benefits: ["사망보험금 3억원", "재해사망 추가보장"] },
+          { product_name: "KB딱좋은 e-건강보험", match_score: 88, monthly_premium: 35000, key_benefits: ["질병보장 1천만원", "입원비 일당지급"] },
+          { product_name: "KB하이파이브평생연금보험", match_score: 92, monthly_premium: 50000, key_benefits: ["평생연금 지급", "원금보장형"] }
+        ];
+        fullContent += `\n\n###VISUALIZATION###\n${JSON.stringify({ type: 'product_match', data: productData })}\n###END_VISUALIZATION###`;
       }
 
-      // 💀 final_report JSON 주입도 완전 차단
-      console.log('final_report JSON 주입 차단됨');
+      // final_report 주입 (STAGE 8: 최종 설계안 확정 시)
+      // (이미 risk_map/gap_analysis/product_match 주입된 경우는 제외)
+      console.log('final_report 주입 로직 실행 중...');
 
       const readable = new ReadableStream({
         start(controller) {
@@ -750,6 +850,24 @@ export async function POST(request: NextRequest) {
     const guardrailResult2 = applyGuardrails(responseContent, effectiveStage, lastUserMsg?.content);
     let content = guardrailResult2.text;
 
+    // LLM이 직접 생성한 마커 쉘 제거
+    content = content.replace(/###VISUALIZATION###[\s\S]*?###END_VISUALIZATION###/g, '');
+    content = content.replace(/#{1,}(?:END_)?VISUALIZATION#{0,}/gi, '');
+
+    // 단계 전환 멘트 제거 — 각 단계는 서버에서 독립 응답으로 처리
+    const TRANSITION_PATTERNS = [
+      /고지의무 안내가 끝난 후[^.\n]*[.!]?\n?/g,
+      /이제 분석 결과를 바탕으로 적합한 상품을 매칭[^.\n]*[.!]?\n?/g,
+      /분석 결과를 바탕으로 적합한 상품을 매칭해드리겠습니다[.!]?\n?/g,
+      /이제 맞춤형 보험 상품을 매칭[^.\n]*[.!]?\n?/g,
+      /이제 적합한 상품을 매칭[^.\n]*[.!]?\n?/g,
+      /상품 매칭을 진행하겠습니다[.!]?\n?/g,
+    ];
+    for (const pat of TRANSITION_PATTERNS) {
+      content = content.replace(pat, '');
+    }
+    content = content.replace(/\n{3,}/g, '\n\n').trim();
+
     // 💀🔥 ULTRA NUCLEAR JSON REMOVAL - 모든 JSON 패턴 완전 제거
     for (let i = 0; i < 10; i++) {
       content = content.replace(/\{[\s\S]*?"type"[\s\S]*?"(?:risk_map|gap_analysis|product_match|final_report)"[\s\S]*?\}/g, '');
@@ -774,6 +892,47 @@ export async function POST(request: NextRequest) {
              !trimmed.match(/^\s*\{.*\}\s*$/);
     }).join('\n');
     content = content.replace(/\s{3,}/g, '\n\n').trim();
+
+    // 상품 매칭 텍스트 감지 시 product_match 시각화 주입 (no-tool 경로)
+    const kbCount = (content.match(/KB\s+[^\n]{3,}/g) || []).length;
+    const isProductMatchText = kbCount >= 2 && !content.includes('###VISUALIZATION###');
+    if (isProductMatchText) {
+      const { products: productsData } = loadData();
+      const finalProducts = parseKbProducts(content, productsData);
+      if (finalProducts.length >= 1) {
+        content += `\n\n###VISUALIZATION###\n${JSON.stringify({ type: 'product_match', data: finalProducts })}\n###END_VISUALIZATION###`;
+        console.log('상품 매칭 시각화 주입 완료 (no-tool path):', finalProducts.length, '개');
+      }
+    }
+
+    // final_report 주입 (STAGE 8: 최종 설계안 확정)
+    const isFinalReportTrigger =
+      (content.includes('최종 설계안을 정리') || content.includes('설계안을 정리해드리겠습니다') ||
+       content.includes('최종 설계가 확정') || content.includes('설계 상담이 완료')) &&
+      !content.includes('###VISUALIZATION###');
+    if (isFinalReportTrigger) {
+      const { products: productsData } = loadData();
+      // 확정 상품 파싱: 현재 LLM 응답에서 먼저 시도
+      let finalProducts = parseKbProducts(content, productsData);
+      if (finalProducts.length === 0) {
+        // 폴백: 최근 사용자 메시지 (확정 발화 포함) 에서만 파싱 — allMsgText 사용 시 추천 상품 전체가 잡히는 문제 방지
+        const recentUserText = messages
+          .filter((m: any) => m.role === 'user')
+          .slice(-4)
+          .map((m: any) => m.content ?? '')
+          .join('\n');
+        finalProducts = parseKbProducts(recentUserText, productsData);
+      }
+      if (finalProducts.length >= 1) {
+        const totalPremium = finalProducts.reduce((sum, p) => sum + p.monthly_premium, 0);
+        const finalReportData = {
+          total_premium: totalPremium,
+          products: finalProducts.map(p => ({ name: p.product_name, premium: p.monthly_premium })),
+        };
+        content += `\n\n###VISUALIZATION###\n${JSON.stringify({ type: 'final_report', data: finalReportData })}\n###END_VISUALIZATION###`;
+        console.log('final_report 시각화 주입 완료, 총보험료:', totalPremium);
+      }
+    }
 
     if (!content.trim()) {
       content = '죄송합니다, 응답을 생성하지 못했습니다. 다시 한번 말씀해 주시겠어요?';

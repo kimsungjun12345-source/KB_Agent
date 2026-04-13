@@ -222,8 +222,13 @@ function CompletionCard({ messages, userName }: { messages: Message[]; userName:
 
   const allVizs = messages.flatMap(m => m.visualizations || []);
   const riskData = allVizs.find(v => v.type === 'risk_map')?.data as { category: string; risk_level: number }[] | undefined;
-  const productData = allVizs.find(v => v.type === 'product_match')?.data as { product_name: string; monthly_premium: number; key_benefits: string[] }[] | undefined;
   const finalData = allVizs.find(v => v.type === 'final_report')?.data;
+  // 최종 설계안이 있으면 확정 상품만, 없으면 마지막 product_match 사용
+  const allProductVizs = allVizs.filter(v => v.type === 'product_match');
+  const productData: { product_name: string; monthly_premium: number; key_benefits: string[] }[] | undefined =
+    finalData?.products
+      ? (finalData.products as any[]).map((p: any) => ({ product_name: p.name, monthly_premium: p.premium, key_benefits: [] }))
+      : (allProductVizs[allProductVizs.length - 1]?.data ?? undefined);
 
   const totalPremium: number =
     finalData?.total_premium ??
@@ -493,15 +498,18 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
         onStageChange(parsed.stage);
       }
 
-      if (parsed.visualizations?.length) {
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === tempAiMessage.id
-              ? { ...m, content: parsed.cleanText, visualizations: parsed.visualizations }
-              : m
-          )
-        );
-      }
+      // 항상 cleanText로 업데이트 (JSON이 본문에 노출되는 문제 방지)
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === tempAiMessage.id
+            ? {
+                ...m,
+                content: parsed.cleanText,
+                ...(parsed.visualizations?.length ? { visualizations: parsed.visualizations } : {})
+              }
+            : m
+        )
+      );
     } catch (error) {
       console.error('Chat error:', error);
 
@@ -589,6 +597,8 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
                       .replace(/###\d###/g, '')
                       .replace(/##\d##/g, '')
                       .replace(/#\d#/g, '')
+                      .replace(/([.!?)]) (- (?=[가-힣]))/g, '$1\n\n$2')
+                      .replace(/([^\n])(- (?:사망|질병|상해|소득중단|노후|KB))/g, '$1\n\n$2')
                     }</ReactMarkdown>
                   </div>
                 )}
@@ -834,7 +844,7 @@ export default function ChatInterface({ userName, currentStage, onStageChange }:
           </div>
         )}
 
-        {currentStage >= 9 && <CompletionCard messages={messages} userName={userName} />}
+        {currentStage >= 8 && <CompletionCard messages={messages} userName={userName} />}
 
         <div ref={messagesEndRef} />
       </div>

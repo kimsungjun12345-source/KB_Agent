@@ -178,8 +178,10 @@ export function calculateRiskScores(input: RiskInput): RiskScores {
   const base = Math.log10(M + 1) * 2.5;
 
   const familyKeywordMap: Record<string, string> = {
-    '암': '암', '심혈관': '심혈관질환', '심장': '심혈관질환',
-    '뇌혈관': '뇌혈관질환', '당뇨': '당뇨병', '고혈압': '심혈관질환',
+    '암': '암', '대장암': '암', '위암': '암', '폐암': '암', '유방암': '암', '간암': '암', '췌장암': '암', '자궁암': '암',
+    '심혈관': '심혈관질환', '심장': '심혈관질환', '협심증': '심혈관질환', '심근경색': '심혈관질환',
+    '뇌혈관': '뇌혈관질환', '뇌졸중': '뇌혈관질환',
+    '당뇨': '당뇨병', '고혈압': '심혈관질환',
   };
   // 질병별 부모 매칭 횟수를 센 뒤, 2명 이상이면 '부모_2명' 배수 적용
   const diseaseParentCount: Record<string, number> = {};
@@ -198,11 +200,19 @@ export function calculateRiskScores(input: RiskInput): RiskScores {
     if (mult > FM) { FM = mult; fmLabel = `${diseaseKey}(${tier}) ×${mult}`; }
   }
 
+  // 가족력 직접 가산점 — log스케일 base가 젊은 나이에서 낮아도 임상적 위험 반영
+  const hasCancerHistory  = input.family_history.some(h => h.includes('암'));
+  const hasDiabetesHistory = input.family_history.some(h => h.includes('당뇨'));
+  const hasCardioHistory  = input.family_history.some(h =>
+    h.includes('심혈관') || h.includes('심장') || h.includes('협심증') || h.includes('심근경색') ||
+    h.includes('뇌혈관') || h.includes('뇌졸중'));
+  const familyBonus = hasCancerHistory ? 2.5 : hasDiabetesHistory ? 1.5 : hasCardioHistory ? 1.0 : 0;
+
   const CD_MAP: Record<string, number> = { '없음': 0, '경증': 1, '중증': 2, '암_이력': 3 };
   const CD = CD_MAP[input.current_condition] ?? 0;
-  const 질병 = Math.round(Math.min(10, base * FM + CD));
+  const 질병 = Math.round(Math.min(10, base * FM + CD + familyBonus));
   const topCausesStr = topCauses.map(c => `${c.icdCategory} ${c.rate}/10만명`).join(', ');
-  reasoning['질병'] = `${ageBracket5} ${genderKey === 'male' ? '남' : '여'} 주요 사망원인: ${topCausesStr}. 암+순환계 합산 ${M.toFixed(1)}/10만명, log스케일 base=${base.toFixed(2)}, 가족력 ${FM}(${fmLabel}), 현재질환 +${CD} → ${질병}점`;
+  reasoning['질병'] = `${ageBracket5} ${genderKey === 'male' ? '남' : '여'} 주요 사망원인: ${topCausesStr}. 암+순환계 합산 ${M.toFixed(1)}/10만명, log스케일 base=${base.toFixed(2)}, 가족력 ×${FM}(${fmLabel}) +${familyBonus}점, 현재질환 +${CD} → ${질병}점`;
 
   // ③ 상해 리스크
   const occupationalData = stats.occupational_risks.data;

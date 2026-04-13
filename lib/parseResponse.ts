@@ -109,29 +109,35 @@ function transformData(type: VizType, rawData: any): any {
       }));
     }
 
-    // 구형 객체 형식 데이터 처리 (호환성용)
+    // 구형 객체 형식 데이터 처리 (호환성용) — 원(₩) 단위로 변환
     return Object.entries(rawData).map(([category, val]: [string, any]) => {
       let recommended = 0;
-      let current = val.covered || 0;
+      let current = 0;
 
       switch(category) {
         case '사망':
-          recommended = Math.round((val.risk || 0) * 500);
+          recommended = Math.round((val.risk || 0) * 5000000);
+          current = Math.round((val.covered || 0) * 5000000);
           break;
         case '질병':
-          recommended = Math.round((val.risk || 0) * 200);
+          recommended = Math.round((val.risk || 0) * 2000000);
+          current = Math.round((val.covered || 0) * 2000000);
           break;
         case '상해':
-          recommended = Math.round((val.risk || 0) * 100);
+          recommended = Math.round((val.risk || 0) * 1000000);
+          current = Math.round((val.covered || 0) * 1000000);
           break;
         case '소득중단':
-          recommended = Math.round((val.risk || 0) * 300);
+          recommended = Math.round((val.risk || 0) * 3000000);
+          current = Math.round((val.covered || 0) * 3000000);
           break;
         case '노후':
-          recommended = Math.round((val.risk || 0) * 1000);
+          recommended = Math.round((val.risk || 0) * 10000000);
+          current = Math.round((val.covered || 0) * 10000000);
           break;
         default:
-          recommended = Math.round((val.risk || 0) * 400);
+          recommended = Math.round((val.risk || 0) * 4000000);
+          current = Math.round((val.covered || 0) * 4000000);
       }
 
       return {
@@ -173,16 +179,22 @@ export function parseResponse(response: string): ParsedResponse {
     .replace(/###\d###/g, '')
     .replace(/##\d##/g, '')
     .replace(/#\d#/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[ \t]+/g, ' ')
     .trim();
 
-  // 잔여 마커 파편 제거 - 모든 패턴 포함
+  // 유효한 마커를 임시 토큰으로 보호한 뒤 잔여 파편만 제거
+  cleaned = cleaned
+    .replace(/###VISUALIZATION###/g, '\x00VIZ_OPEN\x00')
+    .replace(/###END_VISUALIZATION###/g, '\x00VIZ_CLOSE\x00');
   cleaned = cleaned.replace(/#+\s*END_VISUALIZATION\s*#+/g, '');
   cleaned = cleaned.replace(/#+\s*VISUALIZATION\s*#+/g, '');
   cleaned = cleaned.replace(/#END_VISUALIZATION[#]*/g, '');
   cleaned = cleaned.replace(/[#]+END_VISUALIZATION/g, '');
-  cleaned = cleaned.replace(/VISUALIZATION#+/g, ''); // 새로운 패턴 추가
-  cleaned = cleaned.replace(/END_VISUALIZATION#+/g, ''); // 새로운 패턴 추가
+  cleaned = cleaned.replace(/VISUALIZATION#+/g, '');
+  cleaned = cleaned.replace(/END_VISUALIZATION#+/g, '');
+  cleaned = cleaned
+    .replace(/\x00VIZ_OPEN\x00/g, '###VISUALIZATION###')
+    .replace(/\x00VIZ_CLOSE\x00/g, '###END_VISUALIZATION###');
 
   // ── 2. VISUALIZATION 마커 정규화 ──
   cleaned = cleaned.replace(/<details[^>]*>[\s\S]*?<\/summary>\s*/gi, '');
@@ -199,10 +211,9 @@ export function parseResponse(response: string): ParsedResponse {
   cleaned = cleaned.replace(/(\}[\s\]]*\})#+\s*###END_VISUALIZATION###/g, '$1###END_VISUALIZATION###');
   cleaned = cleaned.replace(/(###VISUALIZATION###[\s\S]*?\}[\s\]]*\})#{2,}(?!\w)/g, '$1###END_VISUALIZATION###');
 
-  // ── 3. 마커 기반 추출 ──
-  const markerMatch = cleaned.match(/###VISUALIZATION###([\s\S]*?)###END_VISUALIZATION###/);
+  // ── 3. 마커 기반 추출 (여러 블록 모두 처리) ──
 
-  function tryParseAndBuild(jsonStr: string, textWithout: string): ParsedResponse | null {
+  function tryParseViz(jsonStr: string): { type: VizType; data: any } | null {
     try {
       let s = jsonStr.trim().replace(/[\s#]+$/, '');
       const ob = (s.match(/\{/g) || []).length;
@@ -211,23 +222,38 @@ export function parseResponse(response: string): ParsedResponse {
       const obr = (s.match(/\[/g) || []).length;
       const cbr = (s.match(/\]/g) || []).length;
       if (obr > cbr) s += ']'.repeat(obr - cbr);
-
       const parsed = JSON.parse(s);
       const type = parsed.type as VizType;
       if (!VIZ_TYPES.includes(type)) return null;
-
-      const data = transformData(type, parsed.data);
-      const stage = markerStage ?? inferStageFromText(textWithout, type);
-      return { cleanText: textWithout, stage, visualizations: [{ type, data }] };
+      return { type, data: transformData(type, parsed.data) };
     } catch {
       return null;
     }
   }
 
-  if (markerMatch) {
-    const textWithout = cleaned.replace(/###VISUALIZATION###[\s\S]*?###END_VISUALIZATION###/, '').trim();
-    const result = tryParseAndBuild(markerMatch[1], textWithout);
-    if (result) return result;
+  function tryParseAndBuild(jsonStr: string, textWithout: string): ParsedResponse | null {
+    const viz = tryParseViz(jsonStr);
+    if (!viz) return null;
+    const stage = markerStage ?? inferStageFromText(textWithout, viz.type);
+    return { cleanText: textWithout, stage, visualizations: [{ type: viz.type, data: viz.data }] };
+  }
+
+  const allMarkerMatches = [...cleaned.matchAll(/###VISUALIZATION###([\s\S]*?)###END_VISUALIZATION###/g)];
+  if (allMarkerMatches.length > 0) {
+    // 모든 블록 제거한 cleanText
+    let textWithout = cleaned.replace(/###VISUALIZATION###[\s\S]*?###END_VISUALIZATION###/g, '');
+    // 잔여 마커 파편 제거 (#END_VISUALIZATION### 등)
+    textWithout = textWithout.replace(/#{1,}(?:END_)?VISUALIZATION#{0,}/gi, '');
+    textWithout = textWithout.replace(/\n{3,}/g, '\n\n').trim();
+    const visualizations: Array<{ type: VizType; data: any }> = [];
+    for (const m of allMarkerMatches) {
+      const viz = tryParseViz(m[1]);
+      if (viz) visualizations.push(viz);
+    }
+    if (visualizations.length > 0) {
+      const stage = markerStage ?? inferStageFromText(textWithout, visualizations[0].type);
+      return { cleanText: textWithout, stage, visualizations };
+    }
   }
 
   // ── 4. 폴백: 코드블록 JSON 감지 ──
